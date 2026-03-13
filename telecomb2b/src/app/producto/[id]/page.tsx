@@ -58,6 +58,22 @@ interface ChatMessage {
   timestamp: Date; helpful?: boolean;
 }
 
+/* ─── PALETA DE COLORES DE LA IMAGEN ─── */
+const COLORS = {
+  orange: "#FF6600",
+  yellow: "#F6FA00",
+  green: "#28FB4B",
+  purple: "#9851F9",
+  black: "#000000",
+  white: "#FFFFFF",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray500: "#6B7280",
+  gray600: "#4B5563",
+};
+
 /* ─── HELPER TIEMPO RELATIVO ─── */
 const getRelativeTime = (date: Date): string => {
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -140,7 +156,7 @@ const ProductView360 = ({ images }: { images: string[] }) => {
           </button>
           <button onClick={autoRot ? stopAuto : startAuto}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all text-white text-sm font-medium`}
-            style={{ background: autoRot ? "#ef4444" : "#9851F9" }}>
+            style={{ background: autoRot ? "#ef4444" : COLORS.purple }}>
             <RotateCw size={16} className={autoRot ? 'animate-spin' : ''} />
             {autoRot ? 'Detener' : 'Ver 360°'}
           </button>
@@ -162,17 +178,17 @@ const TipoCompraSelector = ({ tipo, setTipo, disabled = false }: {
   tipo: 'caja'|'unidad'; setTipo: (t: 'caja'|'unidad') => void; disabled?: boolean;
 }) => (
   <div className="flex flex-col gap-2">
-    <label className="text-xs font-medium text-slate-300">Comprar por:</label>
+    <label className="text-xs font-medium text-gray-600">Comprar por:</label>
     <div className="grid grid-cols-2 gap-2">
       {(['caja','unidad'] as const).map(t => (
         <button key={t} onClick={() => setTipo(t)} disabled={disabled}
           className={`py-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-2 border`}
           style={{
             background: tipo === t
-              ? t === 'caja' ? "linear-gradient(135deg,#9851F9,#7c3aed)" : "linear-gradient(135deg,#7c3aed,#6d28d9)"
-              : "rgba(255,255,255,0.05)",
-            borderColor: tipo === t ? (t === 'caja' ? "#9851F9" : "#7c3aed") : "rgba(255,255,255,0.1)",
-            color: tipo === t ? "#fff" : "#94a3b8",
+              ? t === 'caja' ? `linear-gradient(135deg,${COLORS.purple},#7c3aed)` : `linear-gradient(135deg,#7c3aed,#6d28d9)`
+              : COLORS.gray100,
+            borderColor: tipo === t ? (t === 'caja' ? COLORS.purple : "#7c3aed") : COLORS.gray300,
+            color: tipo === t ? COLORS.white : COLORS.gray600,
             opacity: disabled ? 0.5 : 1,
             cursor: disabled ? 'not-allowed' : 'pointer'
           }}>
@@ -185,7 +201,7 @@ const TipoCompraSelector = ({ tipo, setTipo, disabled = false }: {
 );
 
 /* ─── SELECTOR CANTIDAD ─── */
-const QuantitySelector = ({ quantity, setQuantity, max, tipo, pedidoMinimo, disabled = false }: {
+const QuantitySelector = ({ quantity, setQuantity, max, tipo, unidadesPorCaja, pedidoMinimo, disabled = false }: {
   quantity: number; setQuantity: (q: number) => void; max: number;
   tipo: 'caja'|'unidad'; unidadesPorCaja: number; pedidoMinimo: number; disabled?: boolean;
 }) => {
@@ -203,28 +219,29 @@ const QuantitySelector = ({ quantity, setQuantity, max, tipo, pedidoMinimo, disa
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-slate-300">
+      <label className="text-xs font-medium text-gray-600">
         Cantidad ({tipo === 'caja' ? 'cajas' : 'unidades'})
       </label>
-      <div className="flex items-center border border-white/20 rounded-lg overflow-hidden">
+      <div className="flex items-center border rounded-lg overflow-hidden" style={{ borderColor: COLORS.gray300 }}>
         <button onClick={dec} disabled={disabled || quantity <= minVal}
-          className="px-3 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-          <Minus size={16} />
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <Minus size={16} color={COLORS.gray600} />
         </button>
         <input type="number" min={minVal} max={maxReal} value={quantity} onChange={onChange}
           disabled={disabled}
-          className="w-24 text-center bg-transparent border-x border-white/20 py-2 text-sm font-medium focus:outline-none disabled:opacity-50" />
+          className="w-24 text-center bg-transparent border-x py-2 text-sm font-medium focus:outline-none disabled:opacity-50"
+          style={{ borderColor: COLORS.gray300 }} />
         <button onClick={inc} disabled={disabled || quantity >= maxReal}
-          className="px-3 py-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-          <Plus size={16} />
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          <Plus size={16} color={COLORS.gray600} />
         </button>
       </div>
-      <div className="flex justify-between text-[10px] text-slate-500">
+      <div className="flex justify-between text-[10px] text-gray-500">
         <span>Mín: {minVal} {tipo === 'caja' ? 'cajas' : 'uds'}</span>
         <span>Máx: {maxReal}</span>
       </div>
       {tipo === 'unidad' && (
-        <p className="text-[9px] mt-1" style={{ color: "#a78bfa" }}>
+        <p className="text-[9px] mt-1" style={{ color: COLORS.purple }}>
           * Múltiplos de 10 (mín {pedidoMinimo})
         </p>
       )}
@@ -241,7 +258,7 @@ const StarRating = ({ rating, setRating, readonly = false, size = 20 }: {
       <button key={s} type="button" onClick={() => !readonly && setRating && setRating(s)}
         className={`transition-transform ${!readonly ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
         disabled={readonly}>
-        <Star size={size} className={rating >= s ? "text-amber-400 fill-amber-400" : "text-slate-700"} />
+        <Star size={size} className={rating >= s ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
       </button>
     ))}
   </div>
@@ -257,27 +274,27 @@ const ImageUploader = ({ previewImages, imagenesReseña, handleImagenesReseña, 
   const maxSize   = 10 * 1024 * 1024;
   return (
     <div>
-      <label className="block text-xs font-semibold mb-1 text-slate-300">Fotos (opcional)</label>
+      <label className="block text-xs font-semibold mb-1 text-gray-600">Fotos (opcional)</label>
       {imagenesReseña.length > 0 && (
         <div className="mb-1.5">
-          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+          <div className="flex justify-between text-[10px] text-gray-400 mb-1">
             <span>Total: {(totalSize/1048576).toFixed(2)} MB</span>
             <span>Máx: 10MB</span>
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-1.5">
+          <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div className="h-full rounded-full transition-all"
-              style={{ width: `${Math.min((totalSize/maxSize)*100,100)}%`, background: "linear-gradient(90deg,#9851F9,#c084fc)" }} />
+              style={{ width: `${Math.min((totalSize/maxSize)*100,100)}%`, background: `linear-gradient(90deg,${COLORS.purple},#c084fc)` }} />
           </div>
         </div>
       )}
       {previewImages.length > 0 && (
         <div className="grid grid-cols-2 gap-1 mb-1.5">
           {previewImages.map((img, i) => (
-            <div key={i} className="relative aspect-square rounded overflow-hidden bg-slate-800 group">
+            <div key={i} className="relative aspect-square rounded overflow-hidden bg-gray-100 group">
               <img src={img} className="w-full h-full object-cover" alt="" />
               <button type="button" onClick={() => eliminarImagenPreview(i)}
                 className="absolute top-0.5 right-0.5 bg-red-500 hover:bg-red-600 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-all">
-                <X size={10} />
+                <X size={10} color={COLORS.white} />
               </button>
             </div>
           ))}
@@ -285,16 +302,16 @@ const ImageUploader = ({ previewImages, imagenesReseña, handleImagenesReseña, 
       )}
       {previewImages.length < 4 && (
         <label className="flex flex-col items-center justify-center gap-1 border border-dashed rounded p-3 cursor-pointer transition-all group"
-          style={{ borderColor: "rgba(152,81,249,0.3)" }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = "#9851F9")}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(152,81,249,0.3)")}>
+          style={{ borderColor: `${COLORS.purple}80` }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = COLORS.purple)}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = `${COLORS.purple}80`)}>
           <div className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(152,81,249,0.1)" }}>
-            <Camera size={16} style={{ color: "#9851F9" }} />
+            style={{ background: `${COLORS.purple}20` }}>
+            <Camera size={16} style={{ color: COLORS.purple }} />
           </div>
           <div className="text-center">
-            <span className="text-xs font-medium text-slate-300 block">Subir fotos</span>
-            <span className="text-[10px] text-slate-500">{previewImages.length}/4 • Máx 3MB c/u</span>
+            <span className="text-xs font-medium text-gray-600 block">Subir fotos</span>
+            <span className="text-[10px] text-gray-400">{previewImages.length}/4 • Máx 3MB c/u</span>
           </div>
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleImagenesReseña} className="hidden" />
         </label>
@@ -366,7 +383,7 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
   if (isMinimized) return (
     <button onClick={() => setIsMinimized(false)}
       className="fixed bottom-4 right-4 z-40 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 transition-all"
-      style={{ background: "linear-gradient(135deg,#9851F9,#7c3aed)", boxShadow: "0 4px 20px rgba(152,81,249,0.4)" }}>
+      style={{ background: `linear-gradient(135deg,${COLORS.purple},#7c3aed)`, boxShadow: `0 4px 20px ${COLORS.purple}66` }}>
       <Bot size={20} />
       <span className="font-semibold text-sm">Asistente IA</span>
     </button>
@@ -374,18 +391,17 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
 
   return (
     <div className={`fixed right-4 bottom-4 z-50 transition-all duration-300 ${isOpen ? 'w-96' : 'w-72'}`}>
-      <div className="rounded-xl shadow-2xl overflow-hidden border"
-        style={{ background: "rgba(13,10,26,0.98)", borderColor: "rgba(152,81,249,0.3)" }}>
+      <div className="rounded-xl shadow-2xl overflow-hidden border bg-white"
+        style={{ borderColor: `${COLORS.purple}40` }}>
         {/* Header */}
         <div className="p-4 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg,#9851F9,#7c3aed)" }}>
+          style={{ background: `linear-gradient(135deg,${COLORS.purple},#7c3aed)` }}>
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <Bot size={20} className="text-white" />
               </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2"
-                style={{ borderColor: "#0d0a1a" }} />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white" />
             </div>
             <div>
               <h3 className="font-bold text-white text-sm">Asistente IA</h3>
@@ -405,35 +421,35 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
         {isOpen && (
           <>
             {/* Mensajes */}
-            <div className="h-72 overflow-y-auto p-4 space-y-4">
+            <div className="h-72 overflow-y-auto p-4 space-y-4 bg-white">
               {messages.map(msg => (
                 <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-lg p-3 text-sm whitespace-pre-wrap`}
                     style={{
                       background: msg.sender === 'user'
-                        ? "linear-gradient(135deg,#9851F9,#7c3aed)"
-                        : "rgba(255,255,255,0.06)",
-                      border: msg.sender === 'ai' ? "1px solid rgba(152,81,249,0.2)" : "none",
-                      color: "#e2e8f0",
+                        ? `linear-gradient(135deg,${COLORS.purple},#7c3aed)`
+                        : COLORS.gray100,
+                      border: msg.sender === 'ai' ? `1px solid ${COLORS.purple}40` : "none",
+                      color: msg.sender === 'user' ? COLORS.white : COLORS.gray600,
                       borderRadius: msg.sender === 'user' ? "12px 12px 2px 12px" : "12px 12px 12px 2px"
                     }}>
                     {msg.text}
                     {msg.sender === 'ai' && msg.id !== '1' && showFeedback !== msg.id && (
-                      <div className="mt-2 pt-2 flex gap-2" style={{ borderTop: "1px solid rgba(152,81,249,0.15)" }}>
+                      <div className="mt-2 pt-2 flex gap-2" style={{ borderTop: `1px solid ${COLORS.purple}40` }}>
                         <button onClick={() => setShowFeedback(msg.id)}
                           className="flex items-center gap-1 text-[10px] px-2 py-1 rounded transition-colors"
-                          style={{ background: "rgba(152,81,249,0.1)", color: "#a78bfa" }}>
+                          style={{ background: `${COLORS.purple}20`, color: COLORS.purple }}>
                           <ThumbsUp size={10} /> Útil
                         </button>
                         <button onClick={() => setShowFeedback(msg.id)}
                           className="flex items-center gap-1 text-[10px] px-2 py-1 rounded transition-colors"
-                          style={{ background: "rgba(255,255,255,0.05)", color: "#94a3b8" }}>
+                          style={{ background: COLORS.gray100, color: COLORS.gray500 }}>
                           <ThumbsDown size={10} /> No
                         </button>
                       </div>
                     )}
                     {showFeedback === msg.id && (
-                      <p className="text-[10px] mt-2" style={{ color: "#a78bfa" }}>¡Gracias por tu feedback!</p>
+                      <p className="text-[10px] mt-2" style={{ color: COLORS.purple }}>¡Gracias por tu feedback!</p>
                     )}
                   </div>
                 </div>
@@ -441,9 +457,9 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
               {isLoading && (
                 <div className="flex justify-start">
                   <div className="rounded-lg p-3 flex items-center gap-2"
-                    style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(152,81,249,0.2)" }}>
-                    <Loader2 size={14} className="animate-spin" style={{ color: "#9851F9" }} />
-                    <span className="text-sm text-slate-300">Pensando...</span>
+                    style={{ background: COLORS.gray100, border: `1px solid ${COLORS.purple}40` }}>
+                    <Loader2 size={14} className="animate-spin" style={{ color: COLORS.purple }} />
+                    <span className="text-sm text-gray-600">Pensando...</span>
                   </div>
                 </div>
               )}
@@ -451,13 +467,13 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
             </div>
 
             {/* Preguntas rápidas */}
-            <div className="px-4 pb-2">
-              <p className="text-[10px] text-slate-500 mb-1.5">Preguntas rápidas:</p>
+            <div className="px-4 pb-2 bg-white">
+              <p className="text-[10px] text-gray-500 mb-1.5">Preguntas rápidas:</p>
               <div className="flex flex-wrap gap-1">
                 {quickQs.map((q, i) => (
                   <button key={i} onClick={() => setInputText(q.q)}
-                    className="text-[10px] px-2 py-1 rounded-lg transition-colors text-slate-300 hover:text-white"
-                    style={{ background: "rgba(152,81,249,0.08)", border: "1px solid rgba(152,81,249,0.2)" }}>
+                    className="text-[10px] px-2 py-1 rounded-lg transition-colors text-gray-600 hover:text-gray-800"
+                    style={{ background: `${COLORS.purple}20`, border: `1px solid ${COLORS.purple}40` }}>
                     {q.text}
                   </button>
                 ))}
@@ -465,18 +481,18 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
             </div>
 
             {/* Input */}
-            <div className="p-4" style={{ borderTop: "1px solid rgba(152,81,249,0.15)" }}>
+            <div className="p-4 bg-white" style={{ borderTop: `1px solid ${COLORS.purple}40` }}>
               <div className="flex gap-2">
                 <textarea ref={textareaRef} value={inputText}
                   onChange={e => setInputText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Escribe tu pregunta..."
-                  className="flex-1 text-white placeholder-slate-400 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none max-h-24"
-                  style={{ background: "rgba(152,81,249,0.06)", border: "1px solid rgba(152,81,249,0.2)" }}
+                  className="flex-1 text-gray-600 placeholder-gray-400 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none max-h-24"
+                  style={{ background: COLORS.gray100, border: `1px solid ${COLORS.purple}40` }}
                   rows={1} />
                 <button onClick={send} disabled={!inputText.trim() || isLoading}
                   className="px-4 py-2 rounded-lg font-medium text-sm text-white disabled:opacity-40"
-                  style={{ background: inputText.trim() && !isLoading ? "linear-gradient(135deg,#9851F9,#7c3aed)" : "rgba(255,255,255,0.05)" }}>
+                  style={{ background: inputText.trim() && !isLoading ? `linear-gradient(135deg,${COLORS.purple},#7c3aed)` : COLORS.gray200 }}>
                   <Send size={16} />
                 </button>
               </div>
@@ -486,9 +502,9 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
 
         {!isOpen && (
           <button onClick={() => setIsOpen(true)}
-            className="w-full p-3 text-center hover:bg-white/5 transition-colors flex items-center justify-center gap-2">
-            <Bot size={16} style={{ color: "#9851F9" }} />
-            <span className="text-sm font-medium text-slate-300">Chat con Asistente IA</span>
+            className="w-full p-3 text-center hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 bg-white">
+            <Bot size={16} style={{ color: COLORS.purple }} />
+            <span className="text-sm font-medium text-gray-600">Chat con Asistente IA</span>
           </button>
         )}
       </div>
@@ -496,7 +512,8 @@ const ProductAIChatbot = ({ producto, language }: { producto: Producto; language
   );
 };
 
-/* ─── PRECIOS POR VOLUMEN (EXPANDIBLE + SELECCIONABLE) ─── */
+/* ─── PRECIOS POR VOLUMEN (MEJORADO: muestra exactamente lo configurado) ─── */
+/* ─── PRECIOS POR VOLUMEN (MEJORADO: muestra EXACTAMENTE lo configurado) ─── */
 const PreciosVolumenDisplay = ({
   preciosVolumen, tipo, precioCajaBase, precioUnidadBase,
   onSelectPrecio, precioSeleccionado
@@ -510,103 +527,101 @@ const PreciosVolumenDisplay = ({
 }) => {
   const [expanded, setExpanded] = useState(false);
 
+  // Usar EXACTAMENTE las escalas configuradas en el panel de admin
   const escalas = tipo === 'caja'
-    ? (preciosVolumen?.caja  || [])
-    : (preciosVolumen?.unidad|| []);
+    ? (preciosVolumen?.caja || [])
+    : (preciosVolumen?.unidad || []);
+
+  // Si no hay escalas configuradas, no mostrar nada
+  if (escalas.length === 0) return null;
 
   const precioBase = tipo === 'caja' ? precioCajaBase : precioUnidadBase;
-  const unidad     = tipo === 'caja' ? 'caja' : 'ud';
+  const unidad     = tipo === 'caja' ? 'caja' : 'unidad';
 
-  // Si no hay escalas definidas, generar estimadas
-  const escalasEfectivas: EscalaPrecio[] = escalas.length > 0 ? escalas : (
-    tipo === 'caja'
-      ? [
-          { cantidad: 1,  precio: precioCajaBase },
-          { cantidad: 3,  precio: Math.round(precioCajaBase * 0.94) },
-          { cantidad: 5,  precio: Math.round(precioCajaBase * 0.88) },
-          { cantidad: 10, precio: Math.round(precioCajaBase * 0.82) },
-        ]
-      : [
-          { cantidad: 5,  precio: precioUnidadBase },
-          { cantidad: 10, precio: Math.round(precioUnidadBase * 0.95) },
-          { cantidad: 20, precio: Math.round(precioUnidadBase * 0.90) },
-          { cantidad: 50, precio: Math.round(precioUnidadBase * 0.85) },
-        ]
-  );
+  // Ordenar por cantidad ascendente para mostrar de menor a mayor
+  const escalasOrdenadas = [...escalas].sort((a, b) => a.cantidad - b.cantidad);
+
+  // Determinar el texto correcto según la cantidad
+  const getCantidadTexto = (cantidad: number): string => {
+    if (tipo === 'caja') {
+      return `${cantidad} ${cantidad === 1 ? 'caja' : 'cajas'}`;
+    } else {
+      return `${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'}`;
+    }
+  };
 
   return (
-    <div className="rounded-xl overflow-hidden border"
-      style={{ background: "rgba(152,81,249,0.06)", borderColor: "rgba(152,81,249,0.2)" }}>
+    <div className="rounded-xl overflow-hidden border bg-white"
+      style={{ borderColor: `${COLORS.purple}40` }}>
       {/* Botón toggle */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 transition-colors"
-        style={{ color: "#c084fc" }}
-        onMouseEnter={e => (e.currentTarget.style.background = "rgba(152,81,249,0.08)")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+        className="w-full flex items-center justify-between px-4 py-3 transition-colors hover:bg-gray-50"
+        style={{ color: COLORS.purple }}>
         <div className="flex items-center gap-2">
-          <TrendingUp size={15} style={{ color: "#9851F9" }} />
+          <TrendingUp size={15} style={{ color: COLORS.purple }} />
           <span className="text-sm font-bold">Ver precios por volumen</span>
           {precioSeleccionado !== precioBase && (
             <span className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
-              style={{ background: "#9851F9" }}>
+              style={{ background: COLORS.purple }}>
               Precio aplicado
             </span>
           )}
         </div>
         <ChevronDown size={16}
           className={`transition-transform ${expanded ? 'rotate-180' : ''}`}
-          style={{ color: "#9851F9" }} />
+          style={{ color: COLORS.purple }} />
       </button>
 
-      {/* Tabla expandible */}
+      {/* Tabla expandible - muestra EXACTAMENTE las cantidades configuradas */}
       {expanded && (
-        <div className="px-4 pb-4">
-          <p className="text-xs text-gray-400 mb-3">
+        <div className="px-4 pb-4 bg-white">
+          <p className="text-xs text-gray-500 mb-3">
             Haz clic en una fila para aplicar ese precio a tu pedido
           </p>
           <div className="space-y-2">
-            {escalasEfectivas.map((escala, i) => {
+            {escalasOrdenadas.map((escala, i) => {
               const isSelected  = precioSeleccionado === escala.precio;
               const descuento   = precioBase > 0
                 ? Math.round((1 - escala.precio / precioBase) * 100)
                 : 0;
+
+              // Mostrar la cantidad exacta configurada en el panel de admin
+              const cantidadTexto = getCantidadTexto(escala.cantidad);
 
               return (
                 <button key={i} type="button"
                   onClick={() => onSelectPrecio(escala.precio, escala.cantidad)}
                   className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all border text-left"
                   style={{
-                    background: isSelected ? "rgba(152,81,249,0.18)" : "rgba(255,255,255,0.03)",
-                    borderColor: isSelected ? "#9851F9" : "rgba(152,81,249,0.12)",
-                    boxShadow: isSelected ? "0 0 0 1px rgba(152,81,249,0.4)" : "none"
+                    background: isSelected ? `${COLORS.purple}20` : COLORS.white,
+                    borderColor: isSelected ? COLORS.purple : `${COLORS.purple}20`,
+                    boxShadow: isSelected ? `0 0 0 1px ${COLORS.purple}` : "none"
                   }}>
                   <div className="flex items-center gap-2">
                     {isSelected && (
                       <div className="w-4 h-4 rounded-full flex items-center justify-center"
-                        style={{ background: "#9851F9" }}>
-                        <Check size={10} className="text-white" />
+                        style={{ background: COLORS.purple }}>
+                        <Check size={10} color={COLORS.white} />
                       </div>
                     )}
                     {!isSelected && (
                       <div className="w-4 h-4 rounded-full border"
-                        style={{ borderColor: "rgba(152,81,249,0.3)" }} />
+                        style={{ borderColor: `${COLORS.purple}40` }} />
                     )}
-                    <span className="text-sm text-gray-300">
-                      {i < escalasEfectivas.length - 1
-                        ? `${escala.cantidad} – ${escalasEfectivas[i+1].cantidad - 1} ${unidad}${escala.cantidad > 1 ? 's' : ''}`
-                        : `${escala.cantidad}+ ${unidad}s`}
+                    <span className="text-sm text-gray-700">
+                      {cantidadTexto}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
                     {descuento > 0 && (
                       <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                        style={{ background: "rgba(152,81,249,0.2)", color: "#a78bfa" }}>
+                        style={{ background: `${COLORS.purple}20`, color: COLORS.purple }}>
                         -{descuento}%
                       </span>
                     )}
-                    <span className={`text-sm font-black ${isSelected ? 'text-white' : 'text-gray-200'}`}>
+                    <span className={`text-sm font-black ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}>
                       S/ {escala.precio.toLocaleString('es-PE')}
                     </span>
                   </div>
@@ -615,7 +630,7 @@ const PreciosVolumenDisplay = ({
             })}
           </div>
           <p className="text-[10px] text-gray-500 mt-3">
-            * Precios sin IGV. Mínimo de compra: {tipo === 'caja' ? '1 caja' : `${escalasEfectivas[0]?.cantidad || 5} unidades`}
+            * Precios sin IGV. Mínimo de compra: {tipo === 'caja' ? '1 caja' : '5 unidades'}
           </p>
         </div>
       )}
@@ -973,7 +988,6 @@ export default function DetalleProducto() {
       const url      = producto.documento_ficha;
       const filename = `ficha-tecnica-${producto.sku || producto.id}.pdf`;
 
-      // Intentar descarga directa primero
       const link     = document.createElement('a');
       link.href      = url;
       link.download  = filename;
@@ -983,40 +997,37 @@ export default function DetalleProducto() {
       link.click();
       document.body.removeChild(link);
     } catch (e) {
-      // Fallback: abrir en nueva pestaña
       window.open(producto.documento_ficha, '_blank', 'noopener,noreferrer');
     }
   }, [producto]);
 
   /* ══════ LOADING / NOT FOUND ══════ */
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: "linear-gradient(135deg, #0a0514 0%, #0d0a1a 40%, #080510 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
       <div className="text-center space-y-4">
         <div className="relative w-14 h-14 mx-auto">
-          <div className="absolute inset-0 border-4 rounded-full" style={{ borderColor: "rgba(152,81,249,0.2)" }} />
+          <div className="absolute inset-0 border-4 rounded-full" style={{ borderColor: `${COLORS.purple}20` }} />
           <div className="absolute inset-0 border-4 border-t-transparent rounded-full animate-spin"
-            style={{ borderColor: "#9851F9", borderTopColor: "transparent" }} />
+            style={{ borderColor: COLORS.purple, borderTopColor: "transparent" }} />
         </div>
-        <p className="text-white font-semibold text-sm">Cargando producto...</p>
+        <p className="text-gray-800 font-semibold text-sm">Cargando producto...</p>
         <p className="text-gray-500 text-xs">Un momento por favor</p>
       </div>
     </div>
   );
 
   if (!producto) return (
-    <div className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: "linear-gradient(135deg, #0a0514 0%, #0d0a1a 40%, #080510 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-white">
       <div className="text-center space-y-4 max-w-sm">
         <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto"
-          style={{ background: "rgba(239,68,68,0.1)" }}>
-          <AlertCircle size={28} className="text-red-500" />
+          style={{ background: `${COLORS.purple}20` }}>
+          <AlertCircle size={28} style={{ color: COLORS.purple }} />
         </div>
-        <h2 className="text-lg font-bold text-white">Producto no encontrado</h2>
-        <p className="text-gray-400 text-xs">El producto que buscas no existe o fue eliminado.</p>
+        <h2 className="text-lg font-bold text-gray-800">Producto no encontrado</h2>
+        <p className="text-gray-500 text-xs">El producto que buscas no existe o fue eliminado.</p>
         <button onClick={() => router.push("/catalogo")}
           className="inline-flex items-center gap-2 px-4 py-2.5 text-white font-semibold text-xs rounded-lg transition-all"
-          style={{ background: "linear-gradient(135deg,#9851F9,#7c3aed)" }}>
+          style={{ background: `linear-gradient(135deg,${COLORS.purple},#7c3aed)` }}>
           <ArrowLeft size={14} /> Volver al catálogo
         </button>
       </div>
@@ -1040,33 +1051,19 @@ export default function DetalleProducto() {
 
   /* ══════ RENDER PRINCIPAL ══════ */
   return (
-    <div className="min-h-screen text-white antialiased relative"
-      style={{ background: "linear-gradient(135deg, #0a0514 0%, #0d0a1a 50%, #060310 100%)", fontFamily: "'Inter', sans-serif" }}>
-
-      {/* ── FONDO PURPLE SUAVE ── */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-[500px] h-[500px] rounded-full blur-[170px]"
-          style={{ background: "radial-gradient(circle, rgba(152,81,249,0.09) 0%, transparent 65%)" }} />
-        <div className="absolute top-1/2 -left-48 w-[450px] h-[450px] rounded-full blur-[160px]"
-          style={{ background: "radial-gradient(circle, rgba(152,81,249,0.07) 0%, transparent 65%)" }} />
-        <div className="absolute bottom-0 right-1/4 w-[350px] h-[350px] rounded-full blur-[140px]"
-          style={{ background: "radial-gradient(circle, rgba(152,81,249,0.06) 0%, transparent 65%)" }} />
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: "linear-gradient(90deg, transparent, rgba(152,81,249,0.25), transparent)" }} />
-      </div>
-
+    <div className="min-h-screen bg-white text-gray-800 antialiased relative">
       {/* Chatbot IA */}
       <ProductAIChatbot producto={producto} language={language} />
 
       {/* ── HEADER ── */}
-      <header className="sticky top-0 z-40 backdrop-blur-xl"
-        style={{ background: "rgba(10,5,20,0.85)", borderBottom: "1px solid rgba(152,81,249,0.12)" }}>
+      <header className="sticky top-0 z-40 bg-white border-b"
+        style={{ borderColor: COLORS.gray200 }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-5 py-3">
           <div className="flex items-center justify-between">
             <Link href="/catalogo"
-              className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-white transition-colors group">
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-900 transition-colors group">
               <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform"
-                style={{ color: "#9851F9" }} />
+                style={{ color: COLORS.purple }} />
               <span className="hidden sm:inline">Volver al catálogo</span>
               <span className="sm:hidden">Catálogo</span>
             </Link>
@@ -1074,27 +1071,27 @@ export default function DetalleProducto() {
             {/* Compartir */}
             <div className="relative">
               <button onClick={() => setShowShareMenu(!showShareMenu)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-xs font-medium text-white"
-                style={{ background: "rgba(152,81,249,0.08)", borderColor: "rgba(152,81,249,0.25)" }}>
-                <Share2 size={13} style={{ color: "#9851F9" }} />
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all text-xs font-medium text-gray-700"
+                style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+                <Share2 size={13} style={{ color: COLORS.purple }} />
                 <span className="hidden sm:inline">Compartir</span>
               </button>
               {showShareMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowShareMenu(false)} />
-                  <div className="absolute right-0 mt-1.5 w-44 rounded-lg p-1 shadow-2xl z-50 border"
-                    style={{ background: "rgba(13,10,26,0.97)", borderColor: "rgba(152,81,249,0.25)" }}>
+                  <div className="absolute right-0 mt-1.5 w-44 rounded-lg p-1 shadow-2xl z-50 border bg-white"
+                    style={{ borderColor: `${COLORS.purple}40` }}>
                     <button onClick={() => { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`${producto.nombre_producto}\n${window.location.href}`)}`, '_blank'); setShowShareMenu(false); }}
-                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-white/5 rounded text-xs font-medium text-emerald-400 transition-colors">
+                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-gray-100 rounded text-xs font-medium text-emerald-600 transition-colors">
                       <MessageSquare size={14} /> WhatsApp
                     </button>
                     <button onClick={() => { window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, '_blank'); setShowShareMenu(false); }}
-                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-white/5 rounded text-xs font-medium text-blue-400 transition-colors">
+                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-gray-100 rounded text-xs font-medium text-blue-600 transition-colors">
                       <Facebook size={14} /> Facebook
                     </button>
-                    <div className="border-t border-white/10 my-1" />
+                    <div className="border-t border-gray-200 my-1" />
                     <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Enlace copiado"); setShowShareMenu(false); }}
-                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-white/5 rounded text-xs font-medium text-gray-300 transition-colors">
+                      className="w-full flex items-center gap-1.5 p-1.5 hover:bg-gray-100 rounded text-xs font-medium text-gray-600 transition-colors">
                       <Share2 size={14} /> Copiar enlace
                     </button>
                   </div>
@@ -1111,8 +1108,8 @@ export default function DetalleProducto() {
 
           {/* ─── GALERÍA IMÁGENES ─── */}
           <div className="lg:col-span-6 space-y-3">
-            <div className="relative aspect-square rounded-xl overflow-hidden"
-              style={{ border: "1px solid rgba(152,81,249,0.2)" }}>
+            <div className="relative aspect-square rounded-xl overflow-hidden border"
+              style={{ borderColor: COLORS.gray300 }}>
               {isView360 && productImages.length > 1
                 ? <ProductView360 images={productImages} />
                 : <ImageZoom src={imgSeleccionada || productImages[0]} alt={producto.nombre_producto} />
@@ -1120,8 +1117,8 @@ export default function DetalleProducto() {
 
               {productImages.length > 1 && (
                 <button onClick={() => setIsView360(!isView360)}
-                  className="absolute top-3 left-3 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
-                  style={{ background: "rgba(152,81,249,0.6)", border: "1px solid rgba(152,81,249,0.5)" }}>
+                  className="absolute top-3 left-3 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all"
+                  style={{ background: COLORS.purple, border: `1px solid ${COLORS.purple}` }}>
                   <RotateCw size={14} />
                   {isView360 ? "Vista Normal" : "360°"}
                 </button>
@@ -1129,30 +1126,29 @@ export default function DetalleProducto() {
 
               {/* Wishlist */}
               <button onClick={toggleWishlist} disabled={wishlistLoading}
-                className="absolute top-3 right-3 p-2 rounded-lg backdrop-blur-sm transition-all disabled:opacity-50"
-                style={{ background: "rgba(13,10,26,0.7)", border: "1px solid rgba(152,81,249,0.2)" }}>
+                className="absolute top-3 right-3 p-2 rounded-lg bg-white border transition-all disabled:opacity-50"
+                style={{ borderColor: COLORS.gray300 }}>
                 {wishlistLoading
-                  ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ? <div className="w-5 h-5 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
                   : enWishlist
                     ? <HeartIcon size={20} className="fill-red-500 text-red-500" />
-                    : <HeartIcon size={20} className="text-white" />
+                    : <HeartIcon size={20} className="text-gray-600" />
                 }
               </button>
 
               {/* Badges estado */}
               <div className="absolute top-14 right-3 flex flex-col gap-1">
-                <div className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${stockActual > 0 ? '' : ''}`}
+                <div className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-white border`}
                   style={{
-                    background: stockActual > 0 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                    border: `1px solid ${stockActual > 0 ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                    color: stockActual > 0 ? "#4ade80" : "#f87171"
+                    borderColor: stockActual > 0 ? COLORS.green : COLORS.orange,
+                    color: stockActual > 0 ? COLORS.green : COLORS.orange
                   }}>
                   <Package size={11} />
                   {tipoCompra === 'caja' ? `${producto.stock_cajas} cajas` : `${producto.stock_unidades} uds`}
                 </div>
                 {producto.destacado && (
-                  <div className="px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
-                    style={{ background: "rgba(152,81,249,0.2)", border: "1px solid rgba(152,81,249,0.4)", color: "#c084fc" }}>
+                  <div className="px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-white border"
+                    style={{ borderColor: COLORS.purple, color: COLORS.purple }}>
                     <Award size={11} />
                     Destacado
                   </div>
@@ -1164,11 +1160,11 @@ export default function DetalleProducto() {
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {productImages.map((img, i) => (
                 <button key={i} onClick={() => setImgSeleccionada(img)}
-                  className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-white overflow-hidden transition-all"
+                  className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-white overflow-hidden transition-all border"
                   style={{
-                    border: imgSeleccionada === img ? "2px solid #9851F9" : "2px solid transparent",
+                    borderColor: imgSeleccionada === img ? COLORS.purple : COLORS.gray300,
                     opacity: imgSeleccionada === img ? 1 : 0.5,
-                    boxShadow: imgSeleccionada === img ? "0 0 8px rgba(152,81,249,0.4)" : "none"
+                    boxShadow: imgSeleccionada === img ? `0 0 8px ${COLORS.purple}80` : "none"
                   }}>
                   <img src={img} className="w-full h-full object-contain p-1" alt={`Vista ${i+1}`} />
                 </button>
@@ -1180,19 +1176,19 @@ export default function DetalleProducto() {
           <div className="lg:col-span-6 space-y-4">
             {/* Encabezado */}
             <div className="space-y-2.5">
-              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(152,81,249,0.1)", border: "1px solid rgba(152,81,249,0.25)" }}>
-                <BadgeCheck size={12} style={{ color: "#9851F9" }} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#a78bfa" }}>
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border"
+                style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+                <BadgeCheck size={12} style={{ color: COLORS.purple }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-600">
                   Premium B2B
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold leading-tight">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
                 {producto.nombre_producto}
               </h1>
 
-              <div className="grid grid-cols-2 gap-1.5 text-xs text-gray-400">
+              <div className="grid grid-cols-2 gap-1.5 text-xs text-gray-600">
                 {[
                   { icon: Tag,     label: "SKU",       val: producto.sku },
                   { icon: Layers,  label: "Categoría", val: producto.categoria_id },
@@ -1200,15 +1196,15 @@ export default function DetalleProducto() {
                   { icon: Box,     label: "Modelo",    val: producto.modelo || 'N/A' },
                 ].map(({ icon: Icon, label, val }) => (
                   <div key={label} className="flex items-center gap-1">
-                    <Icon size={12} style={{ color: "#9851F9" }} />
+                    <Icon size={12} style={{ color: COLORS.purple }} />
                     <span className="font-medium">{label}:</span>
-                    <span className="text-white font-bold truncate">{val}</span>
+                    <span className="text-gray-900 font-bold truncate">{val}</span>
                   </div>
                 ))}
                 <div className="flex items-center gap-1 col-span-2">
-                  <Grid size={12} style={{ color: "#9851F9" }} />
+                  <Grid size={12} style={{ color: COLORS.purple }} />
                   <span className="font-medium">Color:</span>
-                  <span className="text-white">{producto.color || 'N/A'}</span>
+                  <span className="text-gray-900">{producto.color || 'N/A'}</span>
                 </div>
               </div>
 
@@ -1218,12 +1214,12 @@ export default function DetalleProducto() {
                   <div className="flex">
                     {[...Array(5)].map((_,i) => (
                       <Star key={i} size={14}
-                        className={i < Math.floor(estadisticas.promedioRating) ? "text-amber-400 fill-amber-400" : "text-slate-700"} />
+                        className={i < Math.floor(estadisticas.promedioRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
                     ))}
                   </div>
-                  <span className="text-sm font-bold text-slate-200">{estadisticas.promedioRating}</span>
+                  <span className="text-sm font-bold text-gray-700">{estadisticas.promedioRating}</span>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-gray-400">
+                <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Users size={12} />
                   <span>{estadisticas.totalReseñas} {estadisticas.totalReseñas === 1 ? 'opinión' : 'opiniones'}</span>
                 </div>
@@ -1238,18 +1234,18 @@ export default function DetalleProducto() {
 
             {/* Specs rápidas */}
             {(producto.capacidad_almacenamiento || producto.capacidad_ram || producto.sistema_operativo || producto.procesador) && (
-              <div className="rounded-lg p-3"
-                style={{ background: "rgba(152,81,249,0.05)", border: "1px solid rgba(152,81,249,0.15)" }}>
-                <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-1">
-                  <Sparkles size={12} style={{ color: "#9851F9" }} />
+              <div className="rounded-lg p-3 border"
+                style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+                <h4 className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
+                  <Sparkles size={12} style={{ color: COLORS.purple }} />
                   Especificaciones rápidas
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { val: producto.capacidad_almacenamiento, color: "rgba(152,81,249,0.2)", text: "#c084fc" },
-                    { val: producto.capacidad_ram            && `RAM ${producto.capacidad_ram}`, color: "rgba(109,40,217,0.2)", text: "#a78bfa" },
-                    { val: producto.sistema_operativo,        color: "rgba(34,197,94,0.15)",    text: "#4ade80" },
-                    { val: producto.procesador,               color: "rgba(245,158,11,0.15)",   text: "#fbbf24" },
+                    { val: producto.capacidad_almacenamiento, color: `${COLORS.purple}20`, text: COLORS.purple },
+                    { val: producto.capacidad_ram && `RAM ${producto.capacidad_ram}`, color: `${COLORS.purple}20`, text: COLORS.purple },
+                    { val: producto.sistema_operativo, color: `${COLORS.green}20`, text: COLORS.green },
+                    { val: producto.procesador, color: `${COLORS.orange}20`, text: COLORS.orange },
                   ].map(({ val, color, text }) => val && (
                     <span key={val} className="text-[10px] px-2 py-1 rounded-full"
                       style={{ background: color, color: text }}>
@@ -1261,15 +1257,15 @@ export default function DetalleProducto() {
             )}
 
             {/* PRECIO */}
-            <div className="relative overflow-hidden p-4 rounded-lg"
+            <div className="relative overflow-hidden p-4 rounded-lg border"
               style={{
-                background: "linear-gradient(135deg, rgba(152,81,249,0.08) 0%, rgba(109,40,217,0.08) 100%)",
-                border: "1px solid rgba(152,81,249,0.22)"
+                background: COLORS.gray100,
+                borderColor: COLORS.gray300
               }}>
               <div className="space-y-2">
                 {/* Precio principal */}
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <span className="text-3xl sm:text-4xl font-bold">
+                  <span className="text-3xl sm:text-4xl font-bold text-gray-900">
                     {producto.moneda} {precioSeleccionado.toLocaleString('es-PE')}
                   </span>
                   {precioSeleccionado !== precioBase && (
@@ -1279,41 +1275,41 @@ export default function DetalleProducto() {
                   )}
                   {tipoCompra === 'caja' && producto.en_oferta && producto.precio_oferta_caja && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
-                      style={{ background: "#9851F9" }}>OFERTA</span>
+                      style={{ background: COLORS.purple }}>OFERTA</span>
                   )}
                   {tipoCompra === 'unidad' && producto.en_oferta_unidad && producto.precio_oferta_unidad && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
-                      style={{ background: "#9851F9" }}>OFERTA</span>
+                      style={{ background: COLORS.purple }}>OFERTA</span>
                   )}
                 </div>
 
                 {/* Detalles precio */}
-                <div className="text-sm text-gray-400 space-y-1">
+                <div className="text-sm text-gray-600 space-y-1">
                   {tipoCompra === 'caja' ? (
                     <>
                       <p className="flex items-center gap-1">
-                        <Package size={14} style={{ color: "#9851F9" }} />
+                        <Package size={14} style={{ color: COLORS.purple }} />
                         Por caja ({producto.unidades_por_caja} unidades)
                       </p>
                       <p className="text-xs">
                         <span className="text-gray-500">Precio/unidad: </span>
-                        <span className="text-white font-medium">S/ {producto.precio_unitario.toLocaleString('es-PE')}</span>
+                        <span className="text-gray-900 font-medium">S/ {producto.precio_unitario.toLocaleString('es-PE')}</span>
                       </p>
-                      <p className="text-xs font-bold" style={{ color: "#c084fc" }}>
+                      <p className="text-xs font-bold" style={{ color: COLORS.purple }}>
                         Total {cantidad} {cantidad===1?'caja':'cajas'}: S/ {(precioSeleccionado * cantidad).toLocaleString('es-PE')}
                       </p>
                     </>
                   ) : (
                     <>
                       <p className="flex items-center gap-1">
-                        <Box size={14} style={{ color: "#9851F9" }} />
+                        <Box size={14} style={{ color: COLORS.purple }} />
                         Por unidad suelta
                       </p>
                       <p className="text-xs">
                         <span className="text-gray-500">Eq. por caja: </span>
-                        <span className="text-white font-medium">S/ {(producto.precio_unitario * producto.unidades_por_caja).toLocaleString('es-PE')}</span>
+                        <span className="text-gray-900 font-medium">S/ {(producto.precio_unitario * producto.unidades_por_caja).toLocaleString('es-PE')}</span>
                       </p>
-                      <p className="text-xs font-bold" style={{ color: "#c084fc" }}>
+                      <p className="text-xs font-bold" style={{ color: COLORS.purple }}>
                         Total {cantidad} uds: S/ {(precioSeleccionado * cantidad).toLocaleString('es-PE')}
                       </p>
                     </>
@@ -1321,13 +1317,13 @@ export default function DetalleProducto() {
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <TrendingUp size={12} style={{ color: "#9851F9" }} />
+                  <TrendingUp size={12} style={{ color: COLORS.purple }} />
                   Precio especial B2B • IGV no incluido
                 </div>
               </div>
             </div>
 
-            {/* PRECIOS POR VOLUMEN */}
+            {/* PRECIOS POR VOLUMEN - AHORA MUESTRA EXACTAMENTE LO CONFIGURADO */}
             <PreciosVolumenDisplay
               preciosVolumen={producto.precios_volumen}
               tipo={tipoCompra}
@@ -1350,7 +1346,7 @@ export default function DetalleProducto() {
             />
 
             {enWishlist && (
-              <div className="flex items-center gap-2 text-sm" style={{ color: "#f87171" }}>
+              <div className="flex items-center gap-2 text-sm" style={{ color: COLORS.orange }}>
                 <HeartIcon size={16} className="fill-red-500" />
                 <span>En favoritos</span>
               </div>
@@ -1360,15 +1356,14 @@ export default function DetalleProducto() {
             <div className="flex gap-3">
               <button onClick={handleAgregarAlCarrito}
                 disabled={stockActual <= 0 || producto.estado !== "Activo"}
-                className="flex-1 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
                 style={{
                   background: agregado
-                    ? "linear-gradient(135deg,#22c55e,#16a34a)"
+                    ? COLORS.green
                     : stockActual <= 0 || producto.estado !== "Activo"
-                      ? "rgba(255,255,255,0.1)"
-                      : "linear-gradient(135deg,#9851F9,#7c3aed)",
-                  boxShadow: agregado || stockActual <= 0 ? "none" : "0 4px 20px rgba(152,81,249,0.35)",
-                  color: "#fff"
+                      ? COLORS.gray400
+                      : `linear-gradient(135deg,${COLORS.purple},#7c3aed)`,
+                  boxShadow: agregado || stockActual <= 0 ? "none" : `0 4px 20px ${COLORS.purple}80`,
                 }}>
                 {producto.estado !== "Activo"
                   ? <><AlertCircle size={16} /> Inactivo</>
@@ -1383,15 +1378,15 @@ export default function DetalleProducto() {
               <button onClick={toggleWishlist} disabled={wishlistLoading || !currentUser}
                 className="px-4 py-3 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 border transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  background: enWishlist ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
-                  borderColor: enWishlist ? "rgba(239,68,68,0.3)" : "rgba(152,81,249,0.2)",
-                  color: enWishlist ? "#f87171" : "#94a3b8"
+                  background: enWishlist ? COLORS.gray100 : COLORS.white,
+                  borderColor: enWishlist ? COLORS.orange : COLORS.gray300,
+                  color: enWishlist ? COLORS.orange : COLORS.gray600
                 }}
                 title={!currentUser ? "Inicia sesión" : ""}>
                 {wishlistLoading
                   ? <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   : enWishlist
-                    ? <><HeartIcon size={16} className="fill-red-500" /><span className="hidden sm:inline">Quitar</span></>
+                    ? <><HeartIcon size={16} className="fill-orange-500" /><span className="hidden sm:inline">Quitar</span></>
                     : <><HeartIcon size={16} /><span className="hidden sm:inline">Favoritos</span></>
                 }
               </button>
@@ -1400,23 +1395,23 @@ export default function DetalleProducto() {
             {/* BENEFICIOS */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { icon: Truck,   color: "#9851F9", titulo: "Envío Express",           desc: "24-48h nacional" },
-                { icon: Shield,  color: "#22c55e", titulo: `Garantía ${producto.garantia_meses}m`, desc: "B2B sin costos" },
-                { icon: Lock,    color: "#a78bfa", titulo: "Pago Seguro",             desc: "SSL 256-bit" },
-                { icon: Award,   color: "#fbbf24", titulo: "Calidad Premium",         desc: "Sellado original" },
+                { icon: Truck,   color: COLORS.purple, titulo: "Envío Express",           desc: "24-48h nacional" },
+                { icon: Shield,  color: COLORS.green, titulo: `Garantía ${producto.garantia_meses}m`, desc: "B2B sin costos" },
+                { icon: Lock,    color: COLORS.purple, titulo: "Pago Seguro",             desc: "SSL 256-bit" },
+                { icon: Award,   color: COLORS.yellow, titulo: "Calidad Premium",         desc: "Sellado original" },
               ].map(({ icon: Icon, color, titulo, desc }) => (
-                <div key={titulo} className="rounded-lg p-2.5 transition-all"
-                  style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.12)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(152,81,249,0.08)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(152,81,249,0.04)")}>
+                <div key={titulo} className="rounded-lg p-2.5 transition-all border"
+                  style={{ background: COLORS.white, borderColor: COLORS.gray300 }}
+                  onMouseEnter={e => (e.currentTarget.style.background = COLORS.gray100)}
+                  onMouseLeave={e => (e.currentTarget.style.background = COLORS.white)}>
                   <div className="flex items-start gap-1.5">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                       style={{ background: `${color}20` }}>
                       <Icon size={16} style={{ color }} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-xs text-white mb-0.5">{titulo}</h4>
-                      <p className="text-[10px] text-gray-400">{desc}</p>
+                      <h4 className="font-bold text-xs text-gray-800 mb-0.5">{titulo}</h4>
+                      <p className="text-[10px] text-gray-500">{desc}</p>
                     </div>
                   </div>
                 </div>
@@ -1426,17 +1421,17 @@ export default function DetalleProducto() {
             {/* DATOS FÍSICOS */}
             <div className="grid grid-cols-3 gap-2 text-xs">
               {[
-                { icon: Scale,    label: "Peso",     val: `${producto.peso_kg} kg`,     color: "#9851F9" },
-                { icon: Calendar, label: "Garantía", val: `${producto.garantia_meses}m`, color: "#a78bfa" },
-                { icon: Box,      label: "Dims.",    val: producto.dimensiones || "—",   color: "#9851F9" },
+                { icon: Scale,    label: "Peso",     val: `${producto.peso_kg} kg`,     color: COLORS.purple },
+                { icon: Calendar, label: "Garantía", val: `${producto.garantia_meses}m`, color: COLORS.purple },
+                { icon: Box,      label: "Dims.",    val: producto.dimensiones || "—",   color: COLORS.purple },
               ].map(({ icon: Icon, label, val, color }) => (
-                <div key={label} className="rounded-lg p-2.5"
-                  style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.12)" }}>
+                <div key={label} className="rounded-lg p-2.5 border"
+                  style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
                   <div className="flex items-center gap-1 mb-1">
                     <Icon size={12} style={{ color }} />
-                    <span className="font-bold text-white">{label}</span>
+                    <span className="font-bold text-gray-700">{label}</span>
                   </div>
-                  <span className="font-bold text-white text-[11px]">{val}</span>
+                  <span className="font-bold text-gray-900 text-[11px]">{val}</span>
                 </div>
               ))}
             </div>
@@ -1445,31 +1440,31 @@ export default function DetalleProducto() {
             {producto.documento_ficha && (
               <div className="flex gap-2">
                 <button onClick={handleDescargarFicha}
-                  className="flex-1 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+                  className="flex-1 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all border"
                   style={{
-                    background: "rgba(152,81,249,0.08)",
-                    border: "1px solid rgba(152,81,249,0.25)",
-                    color: "#c084fc"
+                    background: COLORS.white,
+                    borderColor: COLORS.gray300,
+                    color: COLORS.gray100
                   }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(152,81,249,0.15)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "#9851F9";
-                    (e.currentTarget as HTMLElement).style.color = "#fff";
+                    (e.currentTarget as HTMLElement).style.background = COLORS.gray100;
+                    (e.currentTarget as HTMLElement).style.borderColor = COLORS.purple;
+                    (e.currentTarget as HTMLElement).style.color = COLORS.purple;
                   }}
                   onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = "rgba(152,81,249,0.08)";
-                    (e.currentTarget as HTMLElement).style.borderColor = "rgba(152,81,249,0.25)";
-                    (e.currentTarget as HTMLElement).style.color = "#c084fc";
+                    (e.currentTarget as HTMLElement).style.background = COLORS.white;
+                    (e.currentTarget as HTMLElement).style.borderColor = COLORS.gray300;
+                    (e.currentTarget as HTMLElement).style.color = COLORS.gray100;
                   }}>
                   <Download size={15} />
                   Descargar Ficha Técnica (PDF)
                 </button>
                 <a href={producto.documento_ficha} target="_blank" rel="noopener noreferrer"
-                  className="px-3 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all"
+                  className="px-3 py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all border"
                   style={{
-                    background: "rgba(152,81,249,0.05)",
-                    border: "1px solid rgba(152,81,249,0.15)",
-                    color: "#a78bfa"
+                    background: COLORS.white,
+                    borderColor: COLORS.gray300,
+                    color: COLORS.gray600
                   }}>
                   <ExternalLink size={14} />
                 </a>
@@ -1481,8 +1476,8 @@ export default function DetalleProducto() {
         {/* ══════ TABS ══════ */}
         <div className="mt-10" id="seccion-reseñas">
           {/* Tab nav */}
-          <div className="flex gap-4 mb-6 overflow-x-auto"
-            style={{ borderBottom: "1px solid rgba(152,81,249,0.15)" }}>
+          <div className="flex gap-4 mb-6 overflow-x-auto border-b"
+            style={{ borderColor: COLORS.gray300 }}>
             {[
               { id: 'descripcion',      label: 'Descripción' },
               { id: 'especificaciones', label: 'Especificaciones' },
@@ -1490,17 +1485,17 @@ export default function DetalleProducto() {
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 className="pb-2 px-1 text-sm font-semibold transition-all relative whitespace-nowrap flex items-center gap-1"
-                style={{ color: activeTab === tab.id ? "#c084fc" : "#6b7280" }}>
+                style={{ color: activeTab === tab.id ? COLORS.purple : COLORS.gray500 }}>
                 {tab.label}
                 {tab.count !== undefined && (
                   <span className="text-[10px] px-1 py-0.5 rounded-full"
-                    style={{ background: "rgba(152,81,249,0.2)", color: "#a78bfa" }}>
+                    style={{ background: `${COLORS.purple}20`, color: COLORS.purple }}>
                     {tab.count}
                   </span>
                 )}
                 {activeTab === tab.id && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ background: "linear-gradient(90deg,#9851F9,#c084fc)" }} />
+                    style={{ background: `linear-gradient(90deg,${COLORS.purple},#c084fc)` }} />
                 )}
               </button>
             ))}
@@ -1508,15 +1503,15 @@ export default function DetalleProducto() {
 
           {/* DESCRIPCIÓN */}
           {activeTab === 'descripcion' && (
-            <div className="rounded-lg p-5"
-              style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.15)" }}>
-              <h3 className="text-base font-bold text-white mb-3">Descripción del producto</h3>
-              <p className="text-gray-300 leading-relaxed text-sm mb-5">
+            <div className="rounded-lg p-5 border"
+              style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+              <h3 className="text-base font-bold text-gray-800 mb-3">Descripción del producto</h3>
+              <p className="text-gray-600 leading-relaxed text-sm mb-5">
                 {producto.descripcion_corta || "Producto de alta calidad ideal para distribución B2B."}
               </p>
               <div className="mt-4 space-y-3">
-                <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <Sparkles size={14} style={{ color: "#9851F9" }} />
+                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                  <Sparkles size={14} style={{ color: COLORS.purple }} />
                   Información rápida
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -1530,10 +1525,10 @@ export default function DetalleProducto() {
                     ["SO",            producto.sistema_operativo        || 'N/A'],
                     ["Procesador",    producto.procesador               || 'N/A'],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between p-2 rounded"
-                      style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.08)" }}>
-                      <span className="text-gray-400 font-medium">{k}:</span>
-                      <span className="text-white font-bold">{v}</span>
+                    <div key={k} className="flex justify-between p-2 rounded border"
+                      style={{ background: COLORS.white, borderColor: COLORS.gray300 }}>
+                      <span className="text-gray-500 font-medium">{k}:</span>
+                      <span className="text-gray-900 font-bold">{v}</span>
                     </div>
                   ))}
                 </div>
@@ -1543,26 +1538,26 @@ export default function DetalleProducto() {
 
           {/* ESPECIFICACIONES */}
           {activeTab === 'especificaciones' && (
-            <div className="rounded-lg p-5"
-              style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.15)" }}>
-              <h3 className="text-base font-bold text-white mb-4">Especificaciones Técnicas</h3>
+            <div className="rounded-lg p-5 border"
+              style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+              <h3 className="text-base font-bold text-gray-800 mb-4">Especificaciones Técnicas</h3>
               {specsArray.length > 0 ? (
                 <div className="space-y-2">
                   {specsArray.map((item, i) => (
-                    <div key={i} className="rounded-lg p-2.5 transition-all"
-                      style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.1)" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "rgba(152,81,249,0.08)")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "rgba(152,81,249,0.04)")}>
+                    <div key={i} className="rounded-lg p-2.5 transition-all border"
+                      style={{ background: COLORS.white, borderColor: COLORS.gray300 }}
+                      onMouseEnter={e => (e.currentTarget.style.background = COLORS.gray100)}
+                      onMouseLeave={e => (e.currentTarget.style.background = COLORS.white)}>
                       <div className="flex items-start gap-1.5">
-                        <List size={12} className="shrink-0 mt-0.5" style={{ color: "#9851F9" }} />
-                        <span className="text-xs text-gray-300">{item}</span>
+                        <List size={12} className="shrink-0 mt-0.5" style={{ color: COLORS.purple }} />
+                        <span className="text-xs text-gray-600">{item}</span>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <FileText size={32} className="text-gray-700 mx-auto mb-2" />
+                  <FileText size={32} className="text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-500 text-sm">No hay especificaciones disponibles</p>
                 </div>
               )}
@@ -1575,29 +1570,28 @@ export default function DetalleProducto() {
               {/* Panel izquierdo: resumen + formulario */}
               <div className="space-y-4">
                 {/* Resumen ratings */}
-                <div className="rounded-lg p-4"
-                  style={{ background: "rgba(152,81,249,0.05)", border: "1px solid rgba(152,81,249,0.15)" }}>
-                  <h3 className="text-sm font-bold text-white mb-3">Resumen de Calificaciones</h3>
+                <div className="rounded-lg p-4 border"
+                  style={{ background: COLORS.white, borderColor: COLORS.gray300 }}>
+                  <h3 className="text-sm font-bold text-gray-800 mb-3">Resumen de Calificaciones</h3>
                   <div className="text-center mb-3">
-                    <div className="text-4xl font-bold text-white mb-1">{estadisticas.promedioRating}</div>
+                    <div className="text-4xl font-bold text-gray-900 mb-1">{estadisticas.promedioRating}</div>
                     <StarRating rating={estadisticas.promedioRating} readonly size={18} />
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       {estadisticas.totalReseñas} {estadisticas.totalReseñas===1?'opinión':'opiniones'}
                     </p>
                   </div>
                   <div className="space-y-2">
                     {[5,4,3,2,1].map(s => (
                       <div key={s} className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 w-14">{s} ★</span>
-                        <div className="flex-1 h-2 rounded-full overflow-hidden"
-                          style={{ background: "rgba(152,81,249,0.1)" }}>
+                        <span className="text-xs text-gray-500 w-14">{s} ★</span>
+                        <div className="flex-1 h-2 rounded-full overflow-hidden bg-gray-200">
                           <div className="h-full rounded-full transition-all"
                             style={{
                               width: `${porcentajes[s as keyof typeof porcentajes]}%`,
-                              background: "linear-gradient(90deg,#9851F9,#c084fc)"
+                              background: `linear-gradient(90deg,${COLORS.purple},#c084fc)`
                             }} />
                         </div>
-                        <span className="text-xs text-gray-400 w-6 text-right">
+                        <span className="text-xs text-gray-500 w-6 text-right">
                           {estadisticas.distribucionRating[s as keyof typeof estadisticas.distribucionRating]}
                         </span>
                       </div>
@@ -1607,22 +1601,22 @@ export default function DetalleProducto() {
 
                 {/* Formulario reseña */}
                 {currentUser ? (
-                  <div className="rounded-lg p-4"
-                    style={{ background: "rgba(152,81,249,0.05)", border: "1px solid rgba(152,81,249,0.15)" }}>
-                    <h3 className="text-sm font-bold text-white mb-3">Escribir reseña</h3>
+                  <div className="rounded-lg p-4 border"
+                    style={{ background: COLORS.white, borderColor: COLORS.gray300 }}>
+                    <h3 className="text-sm font-bold text-gray-800 mb-3">Escribir reseña</h3>
                     <form onSubmit={handleEnviarReseña} className="space-y-3">
                       <div>
-                        <label className="text-xs text-gray-400 mb-1 block">Calificación</label>
+                        <label className="text-xs text-gray-500 mb-1 block">Calificación</label>
                         <StarRating rating={puntuacion} setRating={setPuntuacion} size={22} />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-400 mb-1 block">Comentario (mín. 10 caracteres)</label>
+                        <label className="text-xs text-gray-500 mb-1 block">Comentario (mín. 10 caracteres)</label>
                         <textarea value={nuevaReseña} onChange={e => setNuevaReseña(e.target.value)}
                           rows={3} placeholder="Tu experiencia con este producto..."
-                          className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none resize-none"
+                          className="w-full rounded-lg px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none resize-none border"
                           style={{
-                            background: "rgba(152,81,249,0.06)",
-                            border: "1px solid rgba(152,81,249,0.2)"
+                            background: COLORS.gray100,
+                            borderColor: COLORS.gray300
                           }} />
                         <div className="flex justify-between text-[10px] text-gray-500 mt-1">
                           <span>{nuevaReseña.length} chars</span>
@@ -1634,12 +1628,12 @@ export default function DetalleProducto() {
                         handleImagenesReseña={handleImagenesReseña}
                         eliminarImagenPreview={eliminarImagenPreview} />
                       {uploadStatus && (
-                        <div className="text-xs p-2 rounded" style={{ background: "rgba(152,81,249,0.1)", color: "#a78bfa" }}>
+                        <div className="text-xs p-2 rounded" style={{ background: `${COLORS.purple}20`, color: COLORS.purple }}>
                           {uploadStatus}
                           {uploadProgress > 0 && uploadProgress < 100 && (
-                            <div className="mt-1 w-full bg-gray-800 rounded-full h-1">
+                            <div className="mt-1 w-full bg-gray-200 rounded-full h-1">
                               <div className="h-1 rounded-full transition-all"
-                                style={{ width: `${uploadProgress}%`, background: "#9851F9" }} />
+                                style={{ width: `${uploadProgress}%`, background: COLORS.purple }} />
                             </div>
                           )}
                         </div>
@@ -1648,25 +1642,25 @@ export default function DetalleProducto() {
                         className="w-full py-2.5 rounded-lg font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed text-white"
                         style={{
                           background: enviando || nuevaReseña.length < 10
-                            ? "rgba(255,255,255,0.05)"
-                            : "linear-gradient(135deg,#9851F9,#7c3aed)"
+                            ? COLORS.gray400
+                            : `linear-gradient(135deg,${COLORS.purple},#7c3aed)`
                         }}>
                         {enviando ? "Publicando..." : "Publicar reseña"}
                       </button>
-                      <p className="text-[9px] text-gray-600 text-center">
+                      <p className="text-[9px] text-gray-400 text-center">
                         Al publicar aceptas que tu nombre sea visible públicamente
                       </p>
                     </form>
                   </div>
                 ) : (
-                  <div className="rounded-lg p-4 text-center"
-                    style={{ background: "rgba(152,81,249,0.05)", border: "1px solid rgba(152,81,249,0.15)" }}>
-                    <User size={28} className="mx-auto mb-2" style={{ color: "#9851F9" }} />
-                    <p className="text-sm font-bold text-white mb-1">Inicia sesión</p>
-                    <p className="text-xs text-gray-400 mb-3">Para dejar una reseña</p>
+                  <div className="rounded-lg p-4 text-center border"
+                    style={{ background: COLORS.white, borderColor: COLORS.gray300 }}>
+                    <User size={28} className="mx-auto mb-2" style={{ color: COLORS.purple }} />
+                    <p className="text-sm font-bold text-gray-800 mb-1">Inicia sesión</p>
+                    <p className="text-xs text-gray-500 mb-3">Para dejar una reseña</p>
                     <Link href="/login"
                       className="inline-block px-4 py-2 text-white font-bold text-xs rounded-lg"
-                      style={{ background: "linear-gradient(135deg,#9851F9,#7c3aed)" }}>
+                      style={{ background: `linear-gradient(135deg,${COLORS.purple},#7c3aed)` }}>
                       Iniciar sesión
                     </Link>
                   </div>
@@ -1677,20 +1671,20 @@ export default function DetalleProducto() {
               <div className="lg:col-span-2 space-y-4">
                 {/* Fotos de clientes */}
                 {todasImagenesReseñas.length > 0 && (
-                  <div className="rounded-lg p-3"
-                    style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.12)" }}>
+                  <div className="rounded-lg p-3 border"
+                    style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-white flex items-center gap-1">
-                        <Camera size={14} style={{ color: "#9851F9" }} />
+                      <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                        <Camera size={14} style={{ color: COLORS.purple }} />
                         Fotos de clientes
                       </h3>
-                      <span className="text-xs text-gray-400">{todasImagenesReseñas.length} fotos</span>
+                      <span className="text-xs text-gray-500">{todasImagenesReseñas.length} fotos</span>
                     </div>
                     <div className="grid grid-cols-5 gap-1.5">
                       {todasImagenesReseñas.slice(0, 10).map((img, i) => (
                         <button key={i} onClick={() => abrirGaleria(i)}
-                          className="aspect-square rounded overflow-hidden bg-slate-800 group transition-all"
-                          style={{ border: "1px solid rgba(152,81,249,0.15)" }}>
+                          className="aspect-square rounded overflow-hidden bg-white group transition-all border"
+                          style={{ borderColor: COLORS.gray300 }}>
                           <img src={img} className="w-full h-full object-cover group-hover:scale-110 transition-transform" alt="" />
                         </button>
                       ))}
@@ -1699,31 +1693,31 @@ export default function DetalleProducto() {
                 )}
 
                 {/* Reseñas */}
-                <h3 className="text-base font-bold text-white">Opiniones</h3>
+                <h3 className="text-base font-bold text-gray-800">Opiniones</h3>
                 {reseñas.length > 0 ? (
                   <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
                     {reseñas.map(r => (
-                      <div key={r.id} className="rounded-lg p-3 transition-all"
-                        style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.12)" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(152,81,249,0.08)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "rgba(152,81,249,0.04)")}>
+                      <div key={r.id} className="rounded-lg p-3 transition-all border"
+                        style={{ background: COLORS.white, borderColor: COLORS.gray300 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = COLORS.gray100)}
+                        onMouseLeave={e => (e.currentTarget.style.background = COLORS.white)}>
                         <div className="flex items-start justify-between mb-2 gap-2">
                           <div className="flex items-center gap-1.5">
                             {r.usuarioFoto
-                              ? <img src={r.usuarioFoto} className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: "rgba(152,81,249,0.3)" }} alt="" />
+                              ? <img src={r.usuarioFoto} className="w-8 h-8 rounded-full object-cover border" style={{ borderColor: COLORS.gray300 }} alt="" />
                               : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                                  style={{ background: "linear-gradient(135deg,#9851F9,#7c3aed)" }}>
+                                  style={{ background: `linear-gradient(135deg,${COLORS.purple},#7c3aed)` }}>
                                   {r.usuario?.charAt(0).toUpperCase()}
                                 </div>
                             }
                             <div>
                               <div className="flex items-center gap-1">
-                                <h4 className="font-bold text-xs text-white">{r.usuario}</h4>
+                                <h4 className="font-bold text-xs text-gray-800">{r.usuario}</h4>
                                 {r.verificado && (
                                   <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-full"
-                                    style={{ background: "rgba(152,81,249,0.15)" }}>
-                                    <BadgeCheck size={9} style={{ color: "#9851F9" }} />
-                                    <span className="text-[9px] font-medium" style={{ color: "#a78bfa" }}>Verificado</span>
+                                    style={{ background: `${COLORS.purple}20` }}>
+                                    <BadgeCheck size={9} style={{ color: COLORS.purple }} />
+                                    <span className="text-[9px] font-medium" style={{ color: COLORS.purple }}>Verificado</span>
                                   </div>
                                 )}
                               </div>
@@ -1737,13 +1731,13 @@ export default function DetalleProducto() {
                             </span>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-300 leading-relaxed mb-2">{r.comentario}</p>
+                        <p className="text-xs text-gray-600 leading-relaxed mb-2">{r.comentario}</p>
                         {r.imagenes?.length > 0 && (
                           <div className="flex gap-1 mb-2">
                             {r.imagenes.map((img, i) => (
                               <button key={i} onClick={() => abrirGaleria(todasImagenesReseñas.indexOf(img))}
-                                className="w-12 h-12 rounded overflow-hidden"
-                                style={{ border: "1px solid rgba(152,81,249,0.2)" }}>
+                                className="w-12 h-12 rounded overflow-hidden border"
+                                style={{ borderColor: COLORS.gray300 }}>
                                 <img src={img} className="w-full h-full object-cover" alt="" />
                               </button>
                             ))}
@@ -1751,8 +1745,8 @@ export default function DetalleProducto() {
                         )}
                         <button onClick={() => marcarUtil(r.id)}
                           className="flex items-center gap-1 text-[10px] transition-colors px-2 py-1 rounded"
-                          style={{ color: "#9851F9" }}
-                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(152,81,249,0.1)")}
+                          style={{ color: COLORS.purple }}
+                          onMouseEnter={e => (e.currentTarget.style.background = `${COLORS.purple}20`)}
                           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                           <Heart size={10} /> Útil ({r.util})
                         </button>
@@ -1760,10 +1754,10 @@ export default function DetalleProducto() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-10 rounded-lg"
-                    style={{ background: "rgba(152,81,249,0.04)", border: "1px solid rgba(152,81,249,0.12)" }}>
-                    <Star size={32} className="text-gray-700 mx-auto mb-2" />
-                    <h3 className="text-sm font-bold text-white mb-1">Sin reseñas aún</h3>
+                  <div className="text-center py-10 rounded-lg border"
+                    style={{ background: COLORS.gray100, borderColor: COLORS.gray300 }}>
+                    <Star size={32} className="text-gray-400 mx-auto mb-2" />
+                    <h3 className="text-sm font-bold text-gray-800 mb-1">Sin reseñas aún</h3>
                     <p className="text-xs text-gray-500">¡Sé el primero en opinar!</p>
                   </div>
                 )}
@@ -1775,21 +1769,20 @@ export default function DetalleProducto() {
 
       {/* ══════ MODAL GALERÍA ══════ */}
       {galleriaAbierta && todasImagenesReseñas.length > 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.94)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90">
           <button onClick={cerrarGaleria}
             className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-all">
-            <X size={18} />
+            <X size={18} color={COLORS.white} />
           </button>
           {todasImagenesReseñas.length > 1 && (
             <>
               <button onClick={() => navegarGaleria('prev')}
                 className="absolute left-4 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-all">
-                <ChevronLeft size={20} />
+                <ChevronLeft size={20} color={COLORS.white} />
               </button>
               <button onClick={() => navegarGaleria('next')}
                 className="absolute right-4 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-all">
-                <ChevronRight size={20} />
+                <ChevronRight size={20} color={COLORS.white} />
               </button>
             </>
           )}
@@ -1806,10 +1799,10 @@ export default function DetalleProducto() {
 
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(152,81,249,0.4) transparent; }
+        .scrollbar-thin { scrollbar-width: thin; scrollbar-color: #9CA3AF transparent; }
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(152,81,249,0.4); border-radius: 10px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #9CA3AF; border-radius: 10px; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
       `}</style>
