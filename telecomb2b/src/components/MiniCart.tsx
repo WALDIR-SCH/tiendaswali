@@ -1,169 +1,322 @@
 "use client";
 import { useCart } from "@/context/CartContext";
-import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight } from "lucide-react";
+import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Package, Box } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
+// ─── PALETA OFICIAL ────────────────────────────────────────────
+const C = {
+  orange:  "#FF6600",
+  yellow:  "#F6FA00",
+  green:   "#28FB4B",
+  purple:  "#9851F9",
+  black:   "#000000",
+  white:   "#FFFFFF",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray400: "#9CA3AF",
+  gray500: "#6B7280",
+  gray600: "#4B5563",
+} as const;
+
+const fmt = (n: number) =>
+  n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ═════════════════════════════════════════════════════════════
+// COMPONENTE
+// ═════════════════════════════════════════════════════════════
 export default function MiniCart() {
-  const { 
-    carrito, 
-    agregarAlCarrito, 
-    reducirCantidad, 
-    eliminarDelCarrito, 
-    total, 
-    isCartOpen, 
-    cerrarCarrito 
+  const {
+    carrito,
+    agregarAlCarrito,
+    reducirCantidad,
+    actualizarCantidad,
+    eliminarDelCarrito,
+    total,
+    isCartOpen,
+    cerrarCarrito,
   } = useCart();
-  
+
+  // Aumentar cantidad: usa actualizarCantidad con el id EXACTO del item
+  // (que puede ser "abc123-caja") — evita que agregarAlCarrito construya
+  // "abc123-caja-caja" y cree un duplicado
+  const aumentarCantidad = (item: any, step: number) => {
+    actualizarCantidad(item.id, (item.cantidad || 1) + step);
+  };
+
   const pathname = usePathname();
 
-  // Cerrar MiniCart al cambiar de ruta
+  // Cerrar al cambiar de ruta
   useEffect(() => {
-    if (isCartOpen) {
-      cerrarCarrito();
-    }
-  }, [pathname]);
+    if (isCartOpen) cerrarCarrito();
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Función para determinar si es producto B2B (se vende en miles)
-  const esProductoB2B = (item: any) => {
-    // Verificar por unidad de venta
-    if (item.unidad_venta?.toLowerCase().includes('mil')) return true;
-    // Verificar por nombre
-    if (item.nombre?.toLowerCase().includes('cable') || 
-        item.nombre?.toLowerCase().includes('conector')) return true;
-    // Por defecto, si tiene precio alto, asumimos B2B
-    if (item.precioBase > 1000) return true;
-    return false;
+  // ── Determinar step de incremento ─────────────────────────
+  // Para B2B: si el ítem es "caja" se incrementa de 1 en 1 caja,
+  // si es "unidad" se incrementa de 10 en 10 (pedido mínimo configurable)
+  const getStep = (item: any): number => {
+    if (item.tipoCompra === "caja")   return 1;
+    if (item.tipoCompra === "unidad") return item.pedido_minimo || 10;
+    // Compatibilidad con items viejos sin tipoCompra
+    if (item.unidad_venta?.toLowerCase().includes("caja")) return 1;
+    return 1;
   };
 
-  // Obtener incremento según el producto
-  const obtenerIncremento = (item: any) => {
-    return esProductoB2B(item) ? 100 : 1;
+  const getTipoLabel = (item: any): string => {
+    if (item.tipoCompra === "caja")   return "caja";
+    if (item.tipoCompra === "unidad") return "unidad";
+    return "unidad";
   };
 
+  // Subtotal por línea (cantidad × precio)
+  const getSubtotal = (item: any): number => {
+    return (item.precioBase || 0) * (item.cantidad || 1);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════
   return (
     <AnimatePresence>
       {isCartOpen && (
         <>
-          <motion.div 
+          {/* Overlay */}
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={cerrarCarrito}
-            className="fixed inset-0 bg-black/70 z-50"
+            className="fixed inset-0 z-50"
+            style={{ background: "rgba(0,0,0,0.75)" }}
           />
 
-          <motion.aside 
+          {/* Panel */}
+          <motion.aside
             initial={{ x: "100%", opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed top-4 right-4 h-fit max-h-[90vh] w-full sm:w-96 bg-gray-900 z-50 flex flex-col shadow-2xl border border-gray-800 rounded-2xl overflow-hidden"
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+            className="fixed top-0 right-0 h-full w-full sm:w-[400px] z-50 flex flex-col shadow-2xl"
+            style={{
+              background: C.white,
+              borderLeft: `1px solid ${C.orange}20`,
+            }}
           >
-            {/* Header */}
-            <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900">
+            {/* ── Header ──────────────────────────────────────── */}
+            <div
+              className="px-5 py-4 flex justify-between items-center shrink-0"
+              style={{ borderBottom: `1px solid ${C.orange}15` }}
+            >
               <div>
-                <h2 className="text-sm font-bold text-white">Carrito de Compras</h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  {carrito.length} {carrito.length === 1 ? 'Producto' : 'Productos'}
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wider">
+                  Carrito B2B
+                </h2>
+                <p className="text-xs mt-0.5" style={{ color: C.gray500 }}>
+                  {carrito.length} {carrito.length === 1 ? "producto" : "productos"} • Solo S/ (PEN)
                 </p>
               </div>
-              <button onClick={cerrarCarrito} className="p-2 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white transition-all">
-                <X size={20} />
+              <button
+                onClick={cerrarCarrito}
+                className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                style={{ color: C.gray400 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = C.orange; (e.currentTarget as HTMLElement).style.background = `${C.orange}10`; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray400; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <X size={18} />
               </button>
             </div>
 
-            {/* Contenido */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[50vh]">
+            {/* ── Ítems ───────────────────────────────────────── */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
               {carrito.length === 0 ? (
-                <div className="py-16 flex flex-col items-center justify-center text-gray-500 text-center">
-                  <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                    <ShoppingBag size={24} />
+                <div className="flex flex-col items-center justify-center h-full gap-4 py-16 text-center">
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                    style={{ background: `${C.orange}10`, border: `1px solid ${C.orange}20` }}
+                  >
+                    <ShoppingBag size={28} style={{ color: C.orange }} />
                   </div>
-                  <p className="text-sm font-medium">Tu carrito está vacío</p>
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">Tu carrito está vacío</p>
+                    <p className="text-xs mt-1" style={{ color: C.gray500 }}>
+                      Agrega productos del catálogo mayorista
+                    </p>
+                  </div>
                 </div>
               ) : (
-                carrito.map((item) => {
-                  const incremento = obtenerIncremento(item);
-                  const esB2B = esProductoB2B(item);
-                  
+                carrito.map(item => {
+                  const step      = getStep(item);
+                  const tipoLabel = getTipoLabel(item);
+                  const esCaja    = tipoLabel === "caja";
+
                   return (
-                    <div key={item.id} className="flex gap-3 p-3 bg-gray-800 rounded-lg items-center">
-                      <div className="w-14 h-14 bg-white rounded-lg p-2 shrink-0 flex items-center justify-center">
-                        <img 
-                          src={item.imagenUrl || item.imagen_principal || '/default-image.png'} 
-                          alt={item.nombre} 
-                          className="w-full h-full object-contain" 
+                    <div
+                      key={`${item.id}-${tipoLabel}`}
+                      className="flex gap-3 p-3 rounded-xl border transition-colors"
+                      style={{
+                        background: C.gray100,
+                        borderColor: C.gray200,
+                      }}
+                    >
+                      {/* Imagen */}
+                      <div
+                        className="w-14 h-14 rounded-xl p-1.5 shrink-0 flex items-center justify-center"
+                        style={{ background: C.white, border: `1px solid ${C.orange}20` }}
+                      >
+                        <img
+                          src={item.imagenUrl || item.imagen_principal || "/placeholder-image.jpg"}
+                          alt={item.nombre}
+                          className="w-full h-full object-contain"
+                          onError={e => { (e.target as HTMLImageElement).src = "/placeholder-image.jpg"; }}
                         />
                       </div>
-                      
+
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-white truncate">
-                          {item.nombre || 'Producto sin nombre'}
-                        </h3>
-                        <p className="text-sm font-bold text-blue-400">
-                          S/ {(item.precioBase || 0).toFixed(2)}
+                        {/* Nombre + SKU */}
+                        <p className="text-gray-900 text-xs font-bold leading-tight truncate">
+                          {item.nombre || "Producto"}
                         </p>
-                        
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center bg-gray-700 rounded-lg p-1">
-                            <button 
-                              onClick={() => reducirCantidad(item.id)} 
-                              className="p-1 text-white hover:bg-gray-600 rounded transition-colors"
-                            >
-                              <Minus size={14}/>
-                            </button>
-                            <span className="text-sm font-medium w-8 text-center text-white">{item.cantidad}</span>
-                           <button 
-  onClick={() => {
-    // Para productos B2B, incremento de 10; para normales, incremento de 1
-    const incremento = item.unidad_venta?.includes('mil') ? 10 : 1;
-    agregarAlCarrito(item, incremento, false);
-  }} 
-  className="p-1 text-white hover:bg-gray-600 rounded transition-colors"
->
-  <Plus size={14}/>
-</button>
-                          </div>
-                          <button 
-                            onClick={() => eliminarDelCarrito(item.id)} 
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                        
-                        {/* Mostrar unidad de venta si es B2B */}
-                        {esB2B && (
-                          <p className="text-[10px] text-gray-500 mt-1">
-                            Unidad: {item.unidad_venta || 'miles'} • +{incremento} c/u
+                        {item.sku && (
+                          <p className="text-[9px] font-mono mt-0.5" style={{ color: C.gray500 }}>
+                            SKU: {item.sku}
                           </p>
                         )}
+
+                        {/* Tipo compra badge */}
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <span
+                            className="inline-flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded"
+                            style={
+                              esCaja
+                                ? { background: `${C.orange}15`, color: C.orange }
+                                : { background: `${C.purple}15`, color: C.purple }
+                            }
+                          >
+                            {esCaja ? <Package size={9} /> : <Box size={9} />}
+                            Por {tipoLabel}
+                          </span>
+                          {esCaja && item.unidadesPorCaja && (
+                            <span className="text-[8px]" style={{ color: C.gray500 }}>
+                              {item.unidadesPorCaja} uds/caja
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Precio + controles */}
+                        <div className="flex items-center justify-between mt-2">
+                          {/* Precio unitario */}
+                          <div>
+                            <p className="text-xs font-black" style={{ color: C.orange }}>
+                              S/ {fmt(item.precioBase || 0)}
+                              <span className="font-medium text-[9px] ml-1" style={{ color: C.gray500 }}>
+                                /{tipoLabel}
+                              </span>
+                            </p>
+                            <p className="text-[9px] font-bold" style={{ color: C.purple }}>
+                              Total: S/ {fmt(getSubtotal(item))}
+                            </p>
+                          </div>
+
+                          {/* Controles cantidad */}
+                          <div
+                            className="flex items-center rounded-lg overflow-hidden border"
+                            style={{ borderColor: C.gray200 }}
+                          >
+                            <button
+                              onClick={() => {
+                                const nueva = (item.cantidad || 1) - step;
+                                if (nueva <= 0) eliminarDelCarrito(item.id);
+                                else actualizarCantidad(item.id, nueva);
+                              }}
+                              className="w-7 h-7 flex items-center justify-center transition-colors"
+                              style={{ background: C.white, color: C.gray500 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.orange}12`; (e.currentTarget as HTMLElement).style.color = C.orange; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span
+                              className="w-9 text-center text-xs font-black text-gray-900"
+                              style={{ background: C.gray100 }}
+                            >
+                              {item.cantidad}
+                            </span>
+                            <button
+                              onClick={() => aumentarCantidad(item, step)}
+                              className="w-7 h-7 flex items-center justify-center transition-colors"
+                              style={{ background: C.white, color: C.gray500 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.orange}12`; (e.currentTarget as HTMLElement).style.color = C.orange; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Eliminar */}
+                      <button
+                        onClick={() => eliminarDelCarrito(item.id)}
+                        className="shrink-0 self-start p-1.5 rounded-lg transition-colors mt-0.5"
+                        style={{ color: C.gray600 }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#ef4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray600; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                        title="Eliminar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   );
                 })
               )}
             </div>
 
-            {/* Footer */}
+            {/* ── Footer ──────────────────────────────────────── */}
             {carrito.length > 0 && (
-              <div className="p-4 bg-gray-950 border-t border-gray-800">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-sm text-gray-400">Total</span>
+              <div
+                className="shrink-0 p-5"
+                style={{ borderTop: `1px solid ${C.gray200}`, background: C.white }}
+              >
+                {/* Resumen */}
+                <div className="flex items-end justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-medium" style={{ color: C.gray500 }}>
+                      Subtotal B2B
+                    </p>
+                    <p className="text-[9px]" style={{ color: C.gray400 }}>
+                      IGV no incluido • Solo PEN
+                    </p>
+                  </div>
                   <div className="text-right">
-                    <span className="text-xl font-bold text-white">S/ {total.toFixed(2)}</span>
+                    <p className="text-2xl font-black text-gray-900">
+                      S/ {fmt(total)}
+                    </p>
                   </div>
                 </div>
-                <Link 
-                  href="/carrito" 
+
+                {/* CTA */}
+                <Link
+                  href="/carrito"
                   onClick={cerrarCarrito}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 py-3 rounded-lg font-medium transition-colors"
+                  className="w-full py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  style={{
+                    background: C.purple,
+                    color: C.white,
+                    boxShadow: `0 4px 20px ${C.purple}40`,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#7c3aed"; (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 28px ${C.purple}55`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.purple; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 20px ${C.purple}40`; }}
                 >
-                  Ir al Carrito <ArrowRight size={16} />
+                  Ir al carrito
+                  <ArrowRight size={16} />
                 </Link>
+
+                <p className="text-center text-[9px] mt-2.5 font-medium" style={{ color: C.gray400 }}>
+                  Precios mayoristas exclusivos B2B • Mín. {carrito[0]?.pedido_minimo || 5} uds
+                </p>
               </div>
             )}
           </motion.aside>

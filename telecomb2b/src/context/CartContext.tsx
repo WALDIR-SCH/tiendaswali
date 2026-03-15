@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 export interface CartItem {
+  pedido_minimo: number;
   id: string;
   idOriginal?: string; // ID original del producto (sin sufijo)
   nombre: string;
@@ -130,13 +131,14 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         precio_unitario: producto.precio_unitario,
         imagenUrl: producto.imagenUrl || producto.imagen_principal || "",
         imagen_principal: producto.imagen_principal || producto.imagenUrl || "",
-        stock: tipoCompra === 'caja' 
+        stock: tipoCompra === 'caja'
           ? (producto.stock_cajas || producto.stock || 9999)
           : (producto.stock_unidades || (producto.stock_cajas * producto.unidadesPorCaja) || 9999),
         unidad_venta: producto.unidad_venta || (tipoCompra === 'caja' ? 'Caja' : 'Unidad'),
         cantidad: cantidad,
         tipoCompra: tipoCompra,
-        unidadesPorCaja: producto.unidadesPorCaja || producto.unidades_por_caja
+        unidadesPorCaja: producto.unidadesPorCaja || producto.unidades_por_caja,
+        pedido_minimo: 0
       };
       
       return [...prev, nuevoItem];

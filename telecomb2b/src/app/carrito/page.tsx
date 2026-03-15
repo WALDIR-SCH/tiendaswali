@@ -1,817 +1,770 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Inter } from "next/font/google";
 import { useCart } from "@/context/CartContext";
 import { db, auth } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { 
-  CreditCard, Landmark, ShieldCheck, Plus, Minus, Trash2, 
-  ChevronLeft, Lock, MapPin, PackageCheck, Truck,
-  CheckCircle2, Loader2, Clock, AlertCircle, ShoppingBag,
-  ArrowRight, Shield, DollarSign, Percent, Gift,
-  Building, Users, FileText, Download, Calendar,
-  Bell, Mail, Phone, Globe, Briefcase,
-  Check, X, CreditCard as Card, QrCode,
-  Send, Globe as Web, FileSignature,
-  Calculator, TrendingUp, Award, Zap,
-  ChevronDown, ChevronUp, Eye, EyeOff,
-  UserCheck, Target, BarChart3, Receipt
+import {
+  CreditCard, Landmark, ShieldCheck, Plus, Minus, Trash2,
+  ChevronLeft, Lock, PackageCheck, Truck,
+  CheckCircle2, Loader2, ShoppingBag,
+  ArrowRight, Percent, Download,
+  Building, FileText, Bell, Mail, Phone,
+  Check, QrCode,
+  FileSignature, Calculator, Award, Receipt,
+  Eye, EyeOff, UserCheck, Target, BarChart3,
+  Package, Zap
 } from "lucide-react";
 
-const inter = Inter({ 
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+// ─── PALETA OFICIAL ────────────────────────────────────────────
+const C = {
+  orange:  "#FF6600",
+  yellow:  "#F6FA00",
+  green:   "#28FB4B",
+  purple:  "#9851F9",
+  purpleDark: "#7c3aed",
+  black:   "#000000",
+  white:   "#FFFFFF",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray500: "#6B7280",
+  gray600: "#4B5563",
+  gray700: "#374151",
+  gray800: "#1F2937",
+} as const;
 
-// Simulación de pasarela de pagos
-const simulatePayment = async (amount: number, method: string) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        success: true,
-        transactionId: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        amount,
-        method,
-        timestamp: new Date().toISOString()
-      });
-    }, 2000);
-  });
-};
+const fmt = (n: number) =>
+  n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const simulatePayment = async (amount: number, method: string) =>
+  new Promise(resolve =>
+    setTimeout(() => resolve({
+      success: true,
+      transactionId: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      amount, method,
+      timestamp: new Date().toISOString()
+    }), 2000)
+  );
+
+// ─── INPUT REUTILIZABLE ────────────────────────────────────────
+const Field = ({
+  label, name, value, onChange, placeholder, type = "text",
+  maxLength, required, className = "", readOnly = false
+}: {
+  label: string; name: string; value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string; type?: string; maxLength?: number;
+  required?: boolean; className?: string; readOnly?: boolean;
+}) => (
+  <div>
+    <label className="text-xs font-bold mb-1.5 block" style={{ color: C.gray600 }}>
+      {label}{required && <span style={{ color: C.orange }}> *</span>}
+    </label>
+    <input
+      name={name} value={value} onChange={onChange}
+      placeholder={placeholder} type={type}
+      maxLength={maxLength} readOnly={readOnly}
+      className={`w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2 ${className}`}
+      style={{
+        background: readOnly ? C.gray100 : C.white,
+        borderColor: C.gray200,
+        color: C.gray800,
+      }}
+      onFocus={e => { if (!readOnly) e.currentTarget.style.borderColor = C.purple; }}
+      onBlur={e => { e.currentTarget.style.borderColor = C.gray200; }}
+    />
+  </div>
+);
+
+// ═════════════════════════════════════════════════════════════
 export default function CarritoPage() {
-  const { carrito, total, agregarAlCarrito, reducirCantidad, eliminarDelCarrito, vaciarCarrito } = useCart();
+  const { carrito, total, agregarAlCarrito, actualizarCantidad, reducirCantidad, eliminarDelCarrito, vaciarCarrito } = useCart();
   const router = useRouter();
-  
-  const [metodoPago, setMetodoPago] = useState<"tarjeta" | "transferencia" | "credito">("transferencia");
-  const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [step, setStep] = useState(1);
-  const [envio, setEnvio] = useState({ 
-    direccion: "", 
-    ciudad: "Lima", 
-    telefono: "",
-    ruc: "",
-    razonSocial: "",
-    contacto: "",
-    email: "",
-    referencia: ""
+
+  const [metodoPago, setMetodoPago] = useState<"tarjeta" | "transferencia">("transferencia");
+  const [loading,           setLoading]           = useState(false);
+  const [showModal,         setShowModal]          = useState(false);
+  const [step,              setStep]               = useState(1);
+  const [showConfirmation,  setShowConfirmation]   = useState(false);
+  const [orderDetails,      setOrderDetails]       = useState<any>(null);
+  const [showCardDetails,   setShowCardDetails]    = useState(false);
+
+  const [envio, setEnvio] = useState({
+    direccion: "", ciudad: "Lima", telefono: "",
+    ruc: "", razonSocial: "", contacto: "", email: "", referencia: ""
   });
   const [paymentDetails, setPaymentDetails] = useState({
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-    cardholder: "",
-    dni: ""
+    cardNumber: "", expiry: "", cvv: "", cardholder: ""
   });
-  const [showCardDetails, setShowCardDetails] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [orderDetails, setOrderDetails] = useState<any>(null);
 
   useEffect(() => {
-    const usuarioActual = auth.currentUser;
-    if (usuarioActual) {
-      setEnvio(prev => ({
-        ...prev,
-        email: usuarioActual.email || "",
-        contacto: usuarioActual.displayName || usuarioActual.email?.split("@")[0] || ""
-      }));
-    }
+    const u = auth.currentUser;
+    if (u) setEnvio(p => ({
+      ...p,
+      email:    u.email || "",
+      contacto: u.displayName || u.email?.split("@")[0] || ""
+    }));
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInput  = (e: React.ChangeEvent<HTMLInputElement>) =>
     setEnvio({ ...envio, [e.target.name]: e.target.value });
-  };
-
-  const handlePaymentInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCardInput = (e: React.ChangeEvent<HTMLInputElement>) =>
     setPaymentDetails({ ...paymentDetails, [e.target.name]: e.target.value });
-  };
 
-  // ===========================================
-  // 🟢 FUNCIÓN PRINCIPAL - 100% CORREGIDA
-  // ===========================================
+  // ── Cálculos IGV Perú ────────────────────────────────────────
+  const totalItems     = carrito.reduce((a, i) => a + i.cantidad, 0);
+  const descuento      = totalItems >= 100 ? 0.20 : totalItems >= 50 ? 0.15 : totalItems >= 20 ? 0.10 : totalItems >= 10 ? 0.05 : 0;
+  const subtotal       = total;
+  const descuentoMonto = subtotal * descuento;
+  const baseImponible  = subtotal - descuentoMonto;
+  const igv            = baseImponible * 0.18;
+  const envioCosto     = carrito.length > 0 ? (subtotal > 1000 ? 0 : 25) : 0;
+  const totalFinal     = baseImponible + envioCosto + igv;
+
+  // ── Finalizar pedido ─────────────────────────────────────────
   const handleFinalizarPedido = async () => {
-    const usuarioActual = auth.currentUser;
-    if (!usuarioActual) {
-      router.push("/login?redirect=/carrito");
-      return;
-    }
-    
+    const u = auth.currentUser;
+    if (!u) { router.push("/login?redirect=/carrito"); return; }
     if (!envio.ruc || envio.ruc.length !== 11) {
-      alert("Ingresa un RUC válido (11 dígitos) para facturar.");
+      alert("Ingresa un RUC válido (11 dígitos).");
       return;
     }
     if (!envio.razonSocial) {
       alert("Ingresa la Razón Social para la factura.");
       return;
     }
-    if (carrito.length === 0) {
-      alert("Tu carrito está vacío.");
-      return;
-    }
+    if (carrito.length === 0) { alert("Tu carrito está vacío."); return; }
 
-    setLoading(true);
-    setShowModal(true);
-    setStep(1);
+    setLoading(true); setShowModal(true); setStep(1);
+    const itemsCopia = [...carrito];
 
     try {
-      const itemsCopia = [...carrito];
-      const totalCopia = total;
-      
       setTimeout(() => setStep(2), 1500);
-      
       setTimeout(async () => {
         setStep(3);
         try {
-          const paymentResult: any = await simulatePayment(totalCopia, metodoPago);
-          
+          const paymentResult: any = await simulatePayment(totalFinal, metodoPago);
           if (paymentResult.success) {
             setStep(4);
-            
-            // ===========================================
-            // 🟢 FIRESTORE - GUARDAR PEDIDO CON IMÁGENES
-            // ===========================================
             const docRef = await addDoc(collection(db, "pedidos"), {
-              // ✅ DATOS DEL CLIENTE
-              clienteId: usuarioActual.uid,
-              clienteEmail: envio.email || usuarioActual.email || "cliente@empresa.com",
-              clienteNombre: envio.razonSocial || envio.contacto || "Empresa SAC",
-              clienteRut: envio.ruc,
-              clienteTelefono: envio.telefono || "+51999999999",
-              clienteDireccion: envio.direccion || "Lima, Perú",
-              
-              // ✅ FECHA Y ESTADO
-              fecha: serverTimestamp(),
-              estado: "Pendiente",
-              metodoPago: metodoPago === "tarjeta" ? "Tarjeta" :
-                          metodoPago === "transferencia" ? "Transferencia" : "No especificado",
-              
-              // ✅ TOTAL Y PRODUCTOS - CON IMÁGENES INCLUIDAS
-              total: Number(totalFinal.toFixed(2)),
+              clienteId:        u.uid,
+              clienteEmail:     envio.email || u.email || "",
+              clienteNombre:    envio.razonSocial || envio.contacto || "",
+              clienteRut:       envio.ruc,
+              clienteTelefono:  envio.telefono || "",
+              clienteDireccion: envio.direccion || "",
+              fecha:            serverTimestamp(),
+              estado:           "Pendiente",
+              metodoPago:       metodoPago === "tarjeta" ? "Tarjeta" : "Transferencia",
+              total:            Number(totalFinal.toFixed(2)),
               items: itemsCopia.map(item => ({
-                id: item.id || `PROD-${Date.now()}`,
-                nombre: item.nombre || "Producto B2B",
-                sku: item.sku || item.id?.substring(0, 8).toUpperCase() || `SKU-${Date.now()}`,
-                precio: Number(item.precioBase) || 0,
-                cantidad: Number(item.cantidad) || 1,
-                // ✅ GUARDAR LA IMAGEN EN AMBOS FORMATOS PARA ASEGURAR COMPATIBILIDAD
-                imagen_principal: item.imagen_principal || item.imagenUrl || '',
-                imagenUrl: item.imagenUrl || item.imagen_principal || ''
+                id:              item.id,
+                nombre:          item.nombre || "Producto B2B",
+                sku:             item.sku || "",
+                precio:          Number(item.precioBase) || 0,
+                cantidad:        Number(item.cantidad) || 1,
+                imagen_principal: item.imagen_principal || item.imagenUrl || "",
+                imagenUrl:       item.imagenUrl || item.imagen_principal || "",
+                tipoCompra:      item.tipoCompra || "caja",
+                unidadesPorCaja: item.unidadesPorCaja || 1,
               })),
-              
-              // ✅ ARCHIVED
-              archived: false,
-              
-              // ✅ COMPROBANTE Y ENVÍO
-              comprobanteUrl: null,
-              trackingNumber: null,
-              courier: null,
-              
-              // ✅ NOTAS
-              urgente: false,
-              nota: `Pedido B2B - RUC: ${envio.ruc}`,
-              notaInterna: `Método: ${metodoPago} | Transacción: ${paymentResult.transactionId}`,
-              
-              // ✅ TIMESTAMPS
+              archived:         false,
+              comprobanteUrl:   null,
+              trackingNumber:   null,
+              urgente:          false,
+              nota:             `Pedido B2B - RUC: ${envio.ruc}`,
+              notaInterna:      `Método: ${metodoPago} | Transacción: ${paymentResult.transactionId}`,
               fechaActualizacion: serverTimestamp(),
-              fechaEntrega: null,
-              archivedAt: null,
-              
-              // ✅ HISTORIAL DE ESTADOS
-              historialEstados: [
-                {
-                  estado: "Pendiente",
-                  fecha: new Date().toISOString(),
-                  usuario: usuarioActual.email || "sistema",
-                  nota: "Pedido creado desde carrito B2B"
-                }
-              ]
+              historialEstados: [{
+                estado:  "Pendiente",
+                fecha:   new Date().toISOString(),
+                usuario: u.email || "sistema",
+                nota:    "Pedido creado desde carrito B2B"
+              }]
             });
 
-            // ✅ ACTUALIZAR STOCK
+            // Actualizar stock
             for (const item of itemsCopia) {
               try {
-                const productRef = doc(db, "productos", item.id);
-                await updateDoc(productRef, {
-                  stock: increment(-item.cantidad)
+                const idOriginal = item.idOriginal || item.id.replace(/-caja$|-unidad$/, "");
+                await updateDoc(doc(db, "productos", idOriginal), {
+                  stock_cajas:    item.tipoCompra === "caja"   ? increment(-item.cantidad) : increment(0),
+                  stock_unidades: item.tipoCompra === "unidad" ? increment(-item.cantidad) : increment(0),
                 });
-              } catch (stockError) {
-                console.error("Error actualizando stock:", stockError);
-              }
+              } catch (e) { console.error("Stock error:", e); }
             }
 
             setOrderDetails({
-              id: docRef.id,
-              total: totalFinal,
-              items: itemsCopia,
+              id: docRef.id, total: totalFinal, items: itemsCopia,
               paymentId: paymentResult.transactionId,
-              ruc: envio.ruc,
-              razonSocial: envio.razonSocial
+              ruc: envio.ruc, razonSocial: envio.razonSocial
             });
-
             vaciarCarrito();
-
             setStep(5);
-            setTimeout(() => {
-              setShowModal(false);
-              setShowConfirmation(true);
-            }, 1500);
+            setTimeout(() => { setShowModal(false); setShowConfirmation(true); }, 1500);
           }
-        } catch (paymentError) {
-          console.error("Error en pago:", paymentError);
-          setShowModal(false);
-          setLoading(false);
+        } catch (e) {
+          console.error(e);
+          setShowModal(false); setLoading(false);
           alert("Error en el procesamiento del pago. Intenta nuevamente.");
         }
       }, 3000);
-
-    } catch (error) {
-      console.error("Error al crear pedido:", error);
-      setShowModal(false);
-      setLoading(false);
+    } catch (e) {
+      console.error(e);
+      setShowModal(false); setLoading(false);
       alert("Error en la transacción. Intenta nuevamente.");
     }
   };
 
-  // ===========================================
-  // 🟢 GENERAR FACTURA PERÚ
-  // ===========================================
-  const generateInvoice = async () => {
-    if (!envio.email || !orderDetails) {
-      alert("No hay información suficiente para generar la factura");
-      return;
-    }
-
-    try {
-      alert(`✅ Factura generada correctamente\n\nPedido: #${orderDetails.id.substring(0, 8).toUpperCase()}\nRUC: ${envio.ruc}\nRazón Social: ${envio.razonSocial}\nTotal: S/ ${orderDetails.total.toFixed(2)}\n\nLa factura electrónica será enviada a: ${envio.email}`);
-      
-      console.log("Enviando a SUNAT:", {
-        ruc: envio.ruc,
-        razonSocial: envio.razonSocial,
-        total: orderDetails.total,
-        items: orderDetails.items
-      });
-
-    } catch (error) {
-      console.error("Error generando factura:", error);
-      alert("Error al generar la factura. Intenta nuevamente.");
-    }
+  const generateInvoice = () => {
+    if (!orderDetails) return;
+    alert(`✅ Factura generada\n\nPedido: #${orderDetails.id.substring(0, 8).toUpperCase()}\nRUC: ${envio.ruc}\nRazón Social: ${envio.razonSocial}\nTotal: S/ ${fmt(orderDetails.total)}\n\nSe enviará a: ${envio.email}`);
   };
 
-  // ===========================================
-  // 🟢 CÁLCULOS PERÚ (IGV 18%)
-  // ===========================================
-  const calculateDiscount = () => {
-    const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0);
-    if (totalItems >= 100) return 0.20;
-    if (totalItems >= 50) return 0.15;
-    if (totalItems >= 20) return 0.10;
-    if (totalItems >= 10) return 0.05;
-    return 0;
-  };
+  // ── Pasos del modal ──────────────────────────────────────────
+  const STEPS = [
+    { step: 1, title: "Validando Stock",    desc: "Verificación en almacén",      icon: PackageCheck },
+    { step: 2, title: "Validación RUC",     desc: "Verificación SUNAT",           icon: FileText },
+    { step: 3, title: "Procesando Pago",    desc: "Autorización bancaria",        icon: CreditCard },
+    { step: 4, title: "Generando Pedido",   desc: "Creación en sistema",          icon: FileSignature },
+    { step: 5, title: "Facturación",        desc: "Generando Factura Electrónica", icon: Receipt },
+  ];
 
-  const subtotal = total;
-  const envioCosto = carrito.length > 0 ? (subtotal > 1000 ? 0 : 25) : 0;
-  const descuento = calculateDiscount();
-  const descuentoMonto = subtotal * descuento;
-  const baseImponible = subtotal - descuentoMonto;
-  const igv = baseImponible * 0.18;
-  const totalFinal = baseImponible + envioCosto + igv;
-
+  // ════════════════════════════════════════════════════════════
+  // RENDER
+  // ════════════════════════════════════════════════════════════
   return (
-    <div className={`${inter.className} ${inter.variable} min-h-screen bg-gradient-to-br from-gray-900 via-gray-950 to-black text-white`}>
-      {/* MODAL DE PROCESAMIENTO */}
+    <div className="min-h-screen" style={{ background: C.white }}>
+
+      {/* ── Modal procesamiento ─────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-black/80">
-          <div className="relative w-full max-w-lg">
-            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-8 shadow-2xl space-y-6">
-              <div className="absolute inset-0 rounded-2xl p-px bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-emerald-600/20 -m-px"></div>
-              
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
-                  <Building size={28} className="text-blue-400" />
-                </div>
-                <h2 className="text-xl font-bold">Procesando Orden B2B</h2>
-                <p className="text-sm text-gray-400">Validando RUC y datos SUNAT</p>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-8 border shadow-2xl space-y-5"
+            style={{ background: C.white, borderColor: `${C.purple}30` }}
+          >
+            {/* Icono */}
+            <div className="text-center space-y-2">
+              <div
+                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center"
+                style={{ background: `${C.purple}15`, border: `2px solid ${C.purple}30` }}
+              >
+                <Building size={28} style={{ color: C.purple }} />
               </div>
-              
-              <div className="space-y-4">
-                {[
-                  { step: 1, title: "Validando Stock", desc: "Verificación en almacén", icon: PackageCheck },
-                  { step: 2, title: "Validación RUC", desc: "Verificación SUNAT", icon: FileText },
-                  { step: 3, title: "Procesando Pago", desc: "Autorización bancaria", icon: CreditCard },
-                  { step: 4, title: "Generando Pedido", desc: "Creación en Firestore", icon: FileSignature },
-                  { step: 5, title: "Facturación", desc: "Generando Factura Electrónica", icon: Receipt }
-                ].map((item) => (
-                  <div key={item.step} className="flex items-center gap-4 p-3 rounded-xl bg-gray-800/50 border border-gray-700/30">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      step >= item.step 
-                        ? 'bg-gradient-to-r from-blue-600 to-cyan-600' 
-                        : 'bg-gray-800/70'
-                    }`}>
-                      {step > item.step ? (
-                        <CheckCircle2 size={20} className="text-white" />
-                      ) : step === item.step ? (
-                        <Loader2 className="animate-spin text-white" size={20} />
-                      ) : (
-                        <item.icon size={20} className="text-gray-500" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold">{item.title}</h3>
-                      <p className="text-xs text-gray-400">{item.desc}</p>
-                    </div>
-                    {step === item.step && (
-                      <div className="px-2 py-1 bg-blue-600/20 text-blue-400 text-xs font-medium rounded">
-                        En proceso
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
-              <div className="pt-4 border-t border-gray-700/50">
-                <div className="flex justify-between text-xs text-gray-400 mb-2">
-                  <span>Progreso: {Math.round((step / 5) * 100)}%</span>
-                  <span>Paso {step} de 5</span>
-                </div>
-                <div className="w-full bg-gray-800/50 rounded-full h-2">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-600 rounded-full transition-all duration-500"
-                    style={{ width: `${(step / 5) * 100}%` }}
-                  />
-                </div>
-              </div>
+              <h2 className="text-xl font-black text-gray-900">Procesando Orden B2B</h2>
+              <p className="text-sm" style={{ color: C.gray500 }}>Validando RUC y datos SUNAT</p>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* MODAL DE CONFIRMACIÓN */}
-      {showConfirmation && orderDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 backdrop-blur-xl bg-black/80">
-          <div className="relative w-full max-w-2xl">
-            <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-8 shadow-2xl">
-              <div className="absolute -top-3 -right-3 w-12 h-12 bg-gradient-to-r from-emerald-600 to-cyan-600 rounded-full flex items-center justify-center">
-                <Check size={24} />
-              </div>
-              
-              <div className="text-center space-y-4 mb-6">
-                <div className="w-20 h-20 mx-auto bg-gradient-to-br from-emerald-600/20 to-cyan-600/20 rounded-full flex items-center justify-center">
-                  <CheckCircle2 size={40} className="text-emerald-400" />
-                </div>
-                <h2 className="text-2xl font-bold">¡Orden Confirmada!</h2>
-                <p className="text-gray-400">Tu pedido B2B ha sido procesado exitosamente</p>
-                <div className="inline-flex items-center gap-2 bg-gray-800/50 px-4 py-2 rounded-full">
-                  <span className="text-sm font-mono">#{orderDetails.id.substring(0, 8).toUpperCase()}</span>
-                  <span className="text-xs text-emerald-400">• RUC: {orderDetails.ruc}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-6">
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-400">Detalles de Pago</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Total:</span>
-                      <span className="font-bold text-lg">S/ {orderDetails.total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">IGV (18%):</span>
-                      <span className="text-sm">S/ {(orderDetails.total * 0.18).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-400">Transacción:</span>
-                      <span className="text-sm font-mono">{orderDetails.paymentId}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-400">Próximos Pasos</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} className="text-blue-400" />
-                      <span className="text-sm">Factura a {envio.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Truck size={14} className="text-emerald-400" />
-                      <span className="text-sm">Envío 24-48h hábiles</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FileText size={14} className="text-amber-400" />
-                      <span className="text-sm">RUC {envio.ruc} verificado</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowConfirmation(false);
-                    router.push("/catalogo");
+            {/* Steps */}
+            <div className="space-y-3">
+              {STEPS.map(({ step: s, title, desc, icon: Icon }) => (
+                <div
+                  key={s}
+                  className="flex items-center gap-3 p-3 rounded-xl border"
+                  style={{
+                    background: step >= s ? `${C.purple}08` : C.gray100,
+                    borderColor: step >= s ? `${C.purple}25` : C.gray200,
                   }}
-                  className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-xl font-semibold transition-all"
                 >
-                  Ver en Dashboard
-                </button>
-                <button
-                  onClick={generateInvoice}
-                  className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl font-semibold transition-all flex items-center justify-center gap-2"
-                >
-                  <Download size={18} />
-                  Descargar Factura
-                </button>
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ background: step >= s ? C.purple : C.gray200 }}
+                  >
+                    {step > s
+                      ? <CheckCircle2 size={18} color={C.white} />
+                      : step === s
+                        ? <Loader2 size={18} color={C.white} className="animate-spin" />
+                        : <Icon size={18} color={C.gray400} />
+                    }
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-800">{title}</p>
+                    <p className="text-xs" style={{ color: C.gray500 }}>{desc}</p>
+                  </div>
+                  {step === s && (
+                    <span
+                      className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                      style={{ background: `${C.purple}15`, color: C.purple }}
+                    >
+                      En proceso
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Barra progreso */}
+            <div>
+              <div className="flex justify-between text-xs mb-1.5" style={{ color: C.gray500 }}>
+                <span>Progreso: {Math.round((step / 5) * 100)}%</span>
+                <span>Paso {step} de 5</span>
+              </div>
+              <div className="w-full h-2 rounded-full" style={{ background: C.gray200 }}>
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${(step / 5) * 100}%`, background: `linear-gradient(90deg,${C.purple},${C.orange})` }}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-16 flex items-center justify-between">
-            <button 
-              onClick={() => router.back()}
-              className="group flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+      {/* ── Modal confirmación ──────────────────────────────── */}
+      {showConfirmation && orderDetails && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl p-8 border shadow-2xl relative"
+            style={{ background: C.white, borderColor: `${C.purple}25` }}
+          >
+            {/* Check badge */}
+            <div
+              className="absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center"
+              style={{ background: C.green }}
             >
-              <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="hidden sm:inline">Continuar comprando</span>
-            </button>
-            
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-medium text-emerald-400">B2B Perú</span>
-                </div>
-                <div className="h-4 w-px bg-gray-700"></div>
-                <div className="flex items-center gap-1.5">
-                  <Building size={14} className="text-blue-400" />
-                  <span className="text-xs font-medium">{envio.razonSocial || "Empresa"}</span>
-                </div>
-              </div>
-              
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent">
-                Checkout B2B Perú
-              </h1>
+              <Check size={24} color={C.black} />
             </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <ShoppingBag size={20} className="text-gray-300" />
-                {carrito.length > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-r from-red-500 to-rose-500 rounded-full text-xs font-bold flex items-center justify-center">
-                    {carrito.length}
-                  </span>
-                )}
+
+            <div className="text-center mb-6">
+              <div
+                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
+                style={{ background: `${C.green}15` }}
+              >
+                <CheckCircle2 size={40} style={{ color: C.green }} />
               </div>
-              <div className="flex items-center gap-2 text-xs">
-                <UserCheck size={14} className="text-emerald-400" />
-                <span className="hidden sm:inline">Crédito: 30 días</span>
+              <h2 className="text-2xl font-black text-gray-900 mb-1">¡Orden Confirmada!</h2>
+              <p className="text-sm" style={{ color: C.gray500 }}>Tu pedido B2B fue procesado exitosamente</p>
+              <div
+                className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full text-sm font-mono border"
+                style={{ background: C.gray100, borderColor: C.gray200, color: C.gray600 }}
+              >
+                #{orderDetails.id.substring(0, 8).toUpperCase()}
+                <span style={{ color: C.green }}>• RUC: {orderDetails.ruc}</span>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-5 mb-6">
+              <div
+                className="rounded-xl p-4 border"
+                style={{ background: `${C.purple}06`, borderColor: `${C.purple}20` }}
+              >
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.purple }}>
+                  Detalles de Pago
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span style={{ color: C.gray500 }}>Total:</span>
+                    <span className="font-black text-gray-900">S/ {fmt(orderDetails.total)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: C.gray500 }}>IGV 18%:</span>
+                    <span className="font-medium text-gray-700">S/ {fmt(orderDetails.total * 0.18 / 1.18)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: C.gray500 }}>ID:</span>
+                    <span className="font-mono text-xs text-gray-600 truncate max-w-[100px]">{orderDetails.paymentId}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                className="rounded-xl p-4 border"
+                style={{ background: `${C.orange}06`, borderColor: `${C.orange}20` }}
+              >
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.orange }}>
+                  Próximos Pasos
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { icon: Mail,  color: C.purple, text: `Factura a ${envio.email.split("@")[0]}…` },
+                    { icon: Truck, color: C.green,  text: "Envío 24-48h hábiles" },
+                    { icon: FileText, color: C.orange, text: `RUC ${envio.ruc} verificado` },
+                  ].map(({ icon: Icon, color, text }, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs" style={{ color: C.gray600 }}>
+                      <Icon size={13} style={{ color }} />
+                      {text}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowConfirmation(false); router.push("/catalogo"); }}
+                className="flex-1 py-3.5 rounded-xl font-black text-sm text-white transition-all"
+                style={{ background: C.purple, boxShadow: `0 4px 16px ${C.purple}40` }}
+                onMouseEnter={e => (e.currentTarget.style.background = C.purpleDark)}
+                onMouseLeave={e => (e.currentTarget.style.background = C.purple)}
+              >
+                Seguir comprando
+              </button>
+              <button
+                onClick={generateInvoice}
+                className="flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 border transition-all"
+                style={{ background: C.white, borderColor: C.gray200, color: C.gray700 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.purple; (e.currentTarget as HTMLElement).style.color = C.purple; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.gray200; (e.currentTarget as HTMLElement).style.color = C.gray700; }}
+              >
+                <Download size={16} />
+                Descargar Factura
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ──────────────────────────────────────────── */}
+      <header
+        className="sticky top-0 z-40 px-4"
+        style={{ background: C.white, borderBottom: `1px solid ${C.gray200}` }}
+      >
+        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-sm font-semibold transition-colors"
+            style={{ color: C.gray500 }}
+            onMouseEnter={e => (e.currentTarget.style.color = C.purple)}
+            onMouseLeave={e => (e.currentTarget.style.color = C.gray500)}
+          >
+            <ChevronLeft size={18} />
+            <span className="hidden sm:inline">Continuar comprando</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: C.green }} />
+              <span className="text-xs font-bold" style={{ color: C.green }}>B2B Perú</span>
+            </div>
+            <h1 className="text-lg font-black" style={{ color: C.gray100 }}>
+              Checkout <span style={{ color: C.purple }}>B2B</span>
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <ShoppingBag size={20} style={{ color: C.gray400 }} />
+            <span className="text-xs font-bold" style={{ color: C.gray600 }}>
+              {carrito.length} {carrito.length === 1 ? "producto" : "productos"}
+            </span>
           </div>
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* ── Main ────────────────────────────────────────────── */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* LEFT COLUMN */}
-          <div className="lg:col-span-7 space-y-8">
-            {/* DATOS EMPRESA */}
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600/20 to-blue-700/20 rounded-lg flex items-center justify-center">
-                    <Building size={20} className="text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Datos para Facturación</h3>
-                    <p className="text-sm text-gray-400">RUC y Razón Social - Obligatorio</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900/50 rounded-lg border border-gray-700">
-                  <Target size={14} className="text-blue-400" />
-                  <span className="text-xs font-medium">SUNAT</span>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">RUC *</label>
-                  <input 
-                    name="ruc" 
-                    value={envio.ruc}
-                    onChange={handleInputChange}
-                    placeholder="20XXXXXXXXX" 
-                    maxLength={11}
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">11 dígitos sin guiones</p>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Razón Social *</label>
-                  <input 
-                    name="razonSocial" 
-                    value={envio.razonSocial}
-                    onChange={handleInputChange}
-                    placeholder="EJEMPLO SAC" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all uppercase"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Contacto</label>
-                  <input 
-                    name="contacto" 
-                    value={envio.contacto}
-                    onChange={handleInputChange}
-                    placeholder="Nombre del responsable" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Email Facturación</label>
-                  <input 
-                    name="email" 
-                    value={envio.email}
-                    onChange={handleInputChange}
-                    type="email"
-                    placeholder="facturacion@empresa.com" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Dirección de Entrega</label>
-                  <input 
-                    name="direccion" 
-                    value={envio.direccion}
-                    onChange={handleInputChange}
-                    placeholder="Av. Principal 123, Lima" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Teléfono</label>
-                  <input 
-                    name="telefono" 
-                    value={envio.telefono}
-                    onChange={handleInputChange}
-                    placeholder="+51 999 888 777" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Referencia</label>
-                  <input 
-                    name="referencia" 
-                    value={envio.referencia}
-                    onChange={handleInputChange}
-                    placeholder="Piso, oficina, interior" 
-                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* MÉTODO DE PAGO */}
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-emerald-600/20 to-emerald-700/20 rounded-lg flex items-center justify-center">
-                    <CreditCard size={20} className="text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Método de Pago</h3>
-                    <p className="text-sm text-gray-400">Selecciona tu forma de pago</p>
-                  </div>
-                </div>
-                <ShieldCheck size={20} className="text-emerald-400" />
-              </div>
+          {/* ══ COLUMNA IZQUIERDA ══════════════════════════════ */}
+          <div className="lg:col-span-7 space-y-6">
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <button 
-                  onClick={() => setMetodoPago("transferencia")} 
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    metodoPago === 'transferencia' 
-                    ? 'border-emerald-500 bg-gradient-to-r from-emerald-600/20 to-emerald-700/10' 
-                    : 'border-gray-700 bg-gray-900/50 hover:border-gray-600'
-                  }`}
+            {/* ── Datos facturación ─────────────────────────── */}
+            <section
+              className="rounded-2xl p-6 border"
+              style={{ background: C.white, borderColor: C.gray200 }}
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: `${C.purple}12` }}
                 >
-                  <Landmark size={24} className={metodoPago === 'transferencia' ? 'text-emerald-400' : 'text-gray-500'} />
-                  <span className="text-xs font-bold">Transferencia</span>
-                  <span className="text-[10px] text-gray-400">BCP/BBVA/Interbank</span>
-                </button>
-                <button 
-                  onClick={() => setMetodoPago("tarjeta")} 
-                  className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
-                    metodoPago === 'tarjeta' 
-                    ? 'border-blue-500 bg-gradient-to-r from-blue-600/20 to-blue-700/10' 
-                    : 'border-gray-700 bg-gray-900/50 hover:border-gray-600'
-                  }`}
+                  <Building size={20} style={{ color: C.purple }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Datos para Facturación</h3>
+                  <p className="text-xs" style={{ color: C.gray500 }}>RUC y Razón Social — Obligatorio</p>
+                </div>
+                <div
+                  className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold"
+                  style={{ background: `${C.orange}08`, borderColor: `${C.orange}25`, color: C.orange }}
                 >
-                  <Card size={24} className={metodoPago === 'tarjeta' ? 'text-blue-400' : 'text-gray-500'} />
-                  <span className="text-xs font-bold">Tarjeta</span>
-                  <span className="text-[10px] text-gray-400">Visa/Mastercard</span>
-                </button>
+                  <Target size={12} /> SUNAT
+                </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="RUC" name="ruc" value={envio.ruc} onChange={handleInput}
+                  placeholder="20XXXXXXXXX" maxLength={11} required />
+                <div className="sm:col-span-2">
+                  <Field label="Razón Social" name="razonSocial" value={envio.razonSocial}
+                    onChange={handleInput} placeholder="EMPRESA SAC" required />
+                </div>
+                <Field label="Contacto" name="contacto" value={envio.contacto}
+                  onChange={handleInput} placeholder="Nombre del responsable" />
+                <Field label="Email Facturación" name="email" value={envio.email}
+                  onChange={handleInput} placeholder="facturacion@empresa.com" type="email" required />
+                <div className="sm:col-span-2">
+                  <Field label="Dirección de Entrega" name="direccion" value={envio.direccion}
+                    onChange={handleInput} placeholder="Av. Principal 123, Lima" />
+                </div>
+                <Field label="Teléfono" name="telefono" value={envio.telefono}
+                  onChange={handleInput} placeholder="+51 999 888 777" />
+                <Field label="Referencia" name="referencia" value={envio.referencia}
+                  onChange={handleInput} placeholder="Piso, oficina, interior" />
+              </div>
+            </section>
+
+            {/* ── Método de pago ────────────────────────────── */}
+            <section
+              className="rounded-2xl p-6 border"
+              style={{ background: C.white, borderColor: C.gray200 }}
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: `${C.green}12` }}
+                >
+                  <CreditCard size={20} style={{ color: C.green }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Método de Pago</h3>
+                  <p className="text-xs" style={{ color: C.gray500 }}>Selecciona tu forma de pago</p>
+                </div>
+                <ShieldCheck size={18} style={{ color: C.green, marginLeft: "auto" }} />
+              </div>
+
+              {/* Selector */}
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                {([
+                  { id: "transferencia", icon: Landmark, label: "Transferencia", sub: "BCP/BBVA/Interbank", color: C.green },
+                  { id: "tarjeta",       icon: CreditCard, label: "Tarjeta",  sub: "Visa/Mastercard",  color: C.purple },
+                ] as const).map(({ id, icon: Icon, label, sub, color }) => (
+                  <button
+                    key={id}
+                    onClick={() => setMetodoPago(id)}
+                    className="p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all"
+                    style={{
+                      borderColor: metodoPago === id ? color : C.gray200,
+                      background:  metodoPago === id ? `${color}0d` : C.white,
+                    }}
+                  >
+                    <Icon size={22} style={{ color: metodoPago === id ? color : C.gray400 }} />
+                    <span className="text-xs font-black" style={{ color: metodoPago === id ? color : C.gray600 }}>{label}</span>
+                    <span className="text-[10px]" style={{ color: C.gray400 }}>{sub}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Transferencia info */}
               {metodoPago === "transferencia" && (
-                <div className="mt-6 p-4 bg-gray-900/30 rounded-xl border border-gray-700">
-                  <h4 className="text-sm font-semibold mb-3">Datos para Transferencia - BCP</h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg">
-                      <span className="text-sm text-gray-400">Banco:</span>
-                      <span className="text-sm font-semibold">BCP</span>
+                <div
+                  className="rounded-xl p-4 border space-y-2"
+                  style={{ background: C.gray100, borderColor: C.gray200 }}
+                >
+                  <h4 className="text-sm font-black text-gray-800 mb-3">Datos para Transferencia — BCP</h4>
+                  {[
+                    ["Banco",             "BCP"],
+                    ["Cuenta Corriente",  "191-23456789-0-99"],
+                    ["CCI",               "00219100234567899099"],
+                    ["Titular",           "TIENDAS WALY SAC"],
+                    ["RUC",               "20605467891"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between items-center p-2.5 rounded-lg" style={{ background: C.white }}>
+                      <span className="text-xs" style={{ color: C.gray500 }}>{k}:</span>
+                      <span className="text-xs font-bold font-mono text-gray-800">{v}</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg">
-                      <span className="text-sm text-gray-400">Cuenta Corriente:</span>
-                      <span className="text-sm font-mono">191-23456789-0-99</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg">
-                      <span className="text-sm text-gray-400">CCI:</span>
-                      <span className="text-sm font-mono">00219100234567899099</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg">
-                      <span className="text-sm text-gray-400">Titular:</span>
-                      <span className="text-sm font-semibold">B2B PERÚ SAC</span>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-800/50 rounded-lg">
-                      <span className="text-sm text-gray-400">RUC:</span>
-                      <span className="text-sm font-mono">20605467891</span>
-                    </div>
-                    <div className="mt-4 p-3 bg-blue-900/20 border border-blue-800/30 rounded-lg">
-                      <p className="text-xs text-blue-300">
-                        <strong>Importante:</strong> Envía el comprobante a facturacion@b2bperu.com con tu RUC y número de pedido.
-                      </p>
-                    </div>
+                  ))}
+                  <div
+                    className="mt-3 p-3 rounded-lg border text-xs"
+                    style={{ background: `${C.purple}08`, borderColor: `${C.purple}20`, color: C.purple }}
+                  >
+                    <strong>Importante:</strong> Envía el comprobante a facturacion@tiendaswaly.com con tu RUC y número de pedido.
                   </div>
                 </div>
               )}
 
+              {/* Tarjeta */}
               {metodoPago === "tarjeta" && (
-                <div className="mt-6 p-4 bg-gray-900/30 rounded-xl border border-gray-700">
+                <div
+                  className="rounded-xl p-4 border"
+                  style={{ background: C.gray100, borderColor: C.gray200 }}
+                >
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-semibold">Detalles de Tarjeta</h4>
-                    <button 
+                    <h4 className="text-sm font-black text-gray-800">Detalles de Tarjeta</h4>
+                    <button
                       onClick={() => setShowCardDetails(!showCardDetails)}
-                      className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                      className="flex items-center gap-1 text-xs font-semibold transition-colors"
+                      style={{ color: C.purple }}
                     >
-                      {showCardDetails ? <EyeOff size={14} /> : <Eye size={14} />}
+                      {showCardDetails ? <EyeOff size={13} /> : <Eye size={13} />}
                       {showCardDetails ? "Ocultar" : "Mostrar"}
                     </button>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <label className="text-xs text-gray-400 mb-2 block">Número de Tarjeta</label>
-                      <div className="relative">
-                        <input 
-                          name="cardNumber"
-                          value={paymentDetails.cardNumber}
-                          onChange={handlePaymentInputChange}
-                          type={showCardDetails ? "text" : "password"}
-                          placeholder="1234 5678 9012 3456"
-                          maxLength={19}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3.5 text-sm font-mono placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                        />
-                      </div>
+                      <Field label="Número de Tarjeta" name="cardNumber"
+                        value={paymentDetails.cardNumber} onChange={handleCardInput}
+                        placeholder="1234 5678 9012 3456"
+                        type={showCardDetails ? "text" : "password"} maxLength={19} />
                     </div>
-                    <div>
-                      <label className="text-xs text-gray-400 mb-2 block">Válida hasta</label>
-                      <input 
-                        name="expiry"
-                        value={paymentDetails.expiry}
-                        onChange={handlePaymentInputChange}
-                        placeholder="MM/AA"
-                        maxLength={5}
-                        className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-400 mb-2 block">CVV</label>
-                      <div className="relative">
-                        <input 
-                          name="cvv"
-                          value={paymentDetails.cvv}
-                          onChange={handlePaymentInputChange}
-                          type={showCardDetails ? "text" : "password"}
-                          placeholder="123"
-                          maxLength={3}
-                          className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3.5 text-sm font-mono placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                        />
-                      </div>
-                    </div>
+                    <Field label="Válida hasta" name="expiry"
+                      value={paymentDetails.expiry} onChange={handleCardInput}
+                      placeholder="MM/AA" maxLength={5} />
+                    <Field label="CVV" name="cvv"
+                      value={paymentDetails.cvv} onChange={handleCardInput}
+                      placeholder="123" type={showCardDetails ? "text" : "password"} maxLength={3} />
                     <div className="col-span-2">
-                      <label className="text-xs text-gray-400 mb-2 block">Nombre del Titular</label>
-                      <input 
-                        name="cardholder"
-                        value={paymentDetails.cardholder}
-                        onChange={handlePaymentInputChange}
-                        placeholder="Como aparece en la tarjeta"
-                        className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3.5 text-sm placeholder-gray-500 outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      />
+                      <Field label="Nombre del Titular" name="cardholder"
+                        value={paymentDetails.cardholder} onChange={handleCardInput}
+                        placeholder="Como aparece en la tarjeta" />
                     </div>
                   </div>
                 </div>
               )}
-            </div>
+            </section>
 
-            {/* PRODUCTOS */}
-            <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-600/20 to-amber-700/20 rounded-lg flex items-center justify-center">
-                    <PackageCheck size={20} className="text-amber-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Resumen de Productos</h3>
-                    <p className="text-sm text-gray-400">{carrito.length} {carrito.length === 1 ? 'producto' : 'productos'} en tu orden</p>
-                  </div>
+            {/* ── Productos ─────────────────────────────────── */}
+            <section
+              className="rounded-2xl p-6 border"
+              style={{ background: C.white, borderColor: C.gray200 }}
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: `${C.orange}12` }}
+                >
+                  <PackageCheck size={20} style={{ color: C.orange }} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-gray-900">Resumen de Productos</h3>
+                  <p className="text-xs" style={{ color: C.gray500 }}>
+                    {carrito.length} {carrito.length === 1 ? "producto" : "productos"} en tu orden
+                  </p>
                 </div>
               </div>
 
               {carrito.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-gray-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <ShoppingBag size={32} className="text-gray-600" />
+                <div className="text-center py-14">
+                  <div
+                    className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
+                    style={{ background: C.gray100 }}
+                  >
+                    <ShoppingBag size={32} style={{ color: C.gray300 }} />
                   </div>
-                  <h4 className="text-lg font-bold text-white mb-2">Carrito vacío</h4>
-                  <p className="text-gray-400 mb-6 max-w-sm mx-auto">
+                  <h4 className="text-lg font-black text-gray-800 mb-2">Carrito vacío</h4>
+                  <p className="text-sm mb-6" style={{ color: C.gray500 }}>
                     Agrega productos desde nuestro catálogo B2B
                   </p>
                   <button
                     onClick={() => router.push("/catalogo")}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-xl font-semibold text-sm transition-all shadow-lg"
+                    className="inline-flex items-center gap-2 px-6 py-3 text-white font-black text-sm rounded-xl transition-all"
+                    style={{ background: C.purple, boxShadow: `0 4px 16px ${C.purple}40` }}
                   >
-                    <Building size={18} />
-                    Explorar Catálogo B2B
+                    <Building size={16} />
+                    Explorar Catálogo
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {carrito.map((item, index) => (
-                    <div key={item.id} className="group bg-gray-900/30 border border-gray-700/50 rounded-xl p-4 hover:border-gray-600 transition-all">
-                      <div className="flex gap-4 items-center">
-                        <div className="relative">
-                          <img 
-                            src={item.imagenUrl || item.imagen_principal || '/default-image.png'} 
-                            className="w-20 h-20 object-contain bg-gray-900/50 rounded-lg p-2" 
-                            alt={item.nombre} 
-                          />
-                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full text-xs font-bold flex items-center justify-center">
-                            {item.cantidad}
-                          </div>
+                <div className="space-y-3">
+                  {carrito.map(item => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3 p-4 rounded-xl border transition-all"
+                      style={{ background: C.gray100, borderColor: C.gray200 }}
+                    >
+                      {/* Imagen */}
+                      <div
+                        className="w-18 h-18 rounded-xl shrink-0 flex items-center justify-center p-2 relative"
+                        style={{ background: C.white, border: `1px solid ${C.gray200}`, width: "72px", height: "72px" }}
+                      >
+                        <img
+                          src={item.imagenUrl || item.imagen_principal || "/placeholder-image.jpg"}
+                          alt={item.nombre}
+                          className="w-full h-full object-contain"
+                          onError={e => { (e.target as HTMLImageElement).src = "/placeholder-image.jpg"; }}
+                        />
+                        <div
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+                          style={{ background: C.purple }}
+                        >
+                          {item.cantidad}
                         </div>
-                        
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-bold text-sm group-hover:text-cyan-300 transition-colors">
-                                  {item.nombre || 'Producto B2B'}
-                                </h4>
-                              </div>
-                              <p className="text-xs text-gray-400">SKU: {item.sku || item.id?.substring(0, 8).toUpperCase()}</p>
-                            </div>
-                            <button 
-                              onClick={() => eliminarDelCarrito(item.id)} 
-                              className="text-gray-500 hover:text-rose-400 transition-colors p-1 hover:bg-gray-800/50 rounded-lg"
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-1">
+                          <div>
+                            <h4 className="text-sm font-black text-gray-900 leading-tight line-clamp-1">
+                              {item.nombre || "Producto"}
+                            </h4>
+                            <p className="text-[10px] font-mono mt-0.5" style={{ color: C.gray500 }}>
+                              SKU: {item.sku || item.id?.substring(0, 8).toUpperCase()}
+                            </p>
+                            {item.tipoCompra && (
+                              <span
+                                className="inline-block mt-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
+                                style={{
+                                  background: item.tipoCompra === "caja" ? `${C.orange}15` : `${C.purple}15`,
+                                  color: item.tipoCompra === "caja" ? C.orange : C.purple,
+                                }}
+                              >
+                                Por {item.tipoCompra}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => eliminarDelCarrito(item.id)}
+                            className="p-1.5 rounded-lg transition-colors shrink-0"
+                            style={{ color: C.gray400 }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#ef4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray400; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2">
+                          {/* Controles cantidad */}
+                          <div
+                            className="flex items-center rounded-lg overflow-hidden border"
+                            style={{ borderColor: C.gray300 }}
+                          >
+                            <button
+                              onClick={() => {
+                                const nueva = (item.cantidad || 1) - 1;
+                                if (nueva <= 0) eliminarDelCarrito(item.id);
+                                else actualizarCantidad(item.id, nueva);
+                              }}
+                              className="w-8 h-8 flex items-center justify-center transition-colors"
+                              style={{ background: C.white, color: C.gray500 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}10`; (e.currentTarget as HTMLElement).style.color = C.purple; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
                             >
-                              <Trash2 size={16} />
+                              <Minus size={13} />
+                            </button>
+                            <span
+                              className="w-10 text-center text-sm font-black text-gray-900"
+                              style={{ background: C.gray100 }}
+                            >
+                              {item.cantidad}
+                            </span>
+                            <button
+                              onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) + 1)}
+                              className="w-8 h-8 flex items-center justify-center transition-colors"
+                              style={{ background: C.white, color: C.gray500 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}10`; (e.currentTarget as HTMLElement).style.color = C.purple; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
+                            >
+                              <Plus size={13} />
                             </button>
                           </div>
-                          
-                          <div className="flex justify-between items-center mt-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center bg-gray-800 rounded-lg border border-gray-700">
-                                <button 
-                                  onClick={() => reducirCantidad(item.id)} 
-                                  className="p-2 hover:bg-gray-700/50 transition-colors rounded-l-lg"
-                                >
-                                  <Minus size={14} className="text-gray-400" />
-                                </button>
-                                <span className="px-3 text-sm font-bold min-w-10 text-center">{item.cantidad}</span>
-                                <button 
-                                  onClick={() => agregarAlCarrito(item, false)} 
-                                  className="p-2 hover:bg-gray-700/50 transition-colors rounded-r-lg"
-                                >
-                                  <Plus size={14} className="text-cyan-400" />
-                                </button>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right">
-                              <p className="text-lg font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                                S/ {((item.precioBase || 0) * item.cantidad).toFixed(2)}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                S/ {item.precioBase?.toFixed(2)} c/u
-                              </p>
-                            </div>
+
+                          {/* Precio */}
+                          <div className="text-right">
+                            <p className="text-base font-black" style={{ color: C.orange }}>
+                              S/ {fmt((item.precioBase || 0) * item.cantidad)}
+                            </p>
+                            <p className="text-[10px]" style={{ color: C.gray500 }}>
+                              S/ {fmt(item.precioBase || 0)} c/u
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -819,195 +772,184 @@ export default function CarritoPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
           </div>
 
-          {/* RIGHT COLUMN */}
+          {/* ══ COLUMNA DERECHA ════════════════════════════════ */}
           <div className="lg:col-span-5">
-            <div className="sticky top-24 space-y-8">
-              {/* RESUMEN DE COMPRA */}
-              <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center gap-2 mb-6">
-                  <Calculator size={20} className="text-cyan-400" />
-                  <h3 className="text-lg font-bold text-white">Resumen - IGV 18%</h3>
+            <div className="sticky top-24 space-y-5">
+
+              {/* ── Resumen de compra ─────────────────────────── */}
+              <div
+                className="rounded-2xl p-6 border"
+                style={{ background: C.white, borderColor: C.gray200 }}
+              >
+                <div className="flex items-center gap-2 mb-5">
+                  <Calculator size={18} style={{ color: C.purple }} />
+                  <h3 className="text-base font-black text-gray-900">Resumen — IGV 18%</h3>
                 </div>
 
-                <div className="space-y-4 mb-6">
-                  <div className="flex justify-between items-center py-3 border-b border-gray-700/50">
-                    <div>
-                      <span className="text-sm font-medium">Subtotal</span>
-                      <p className="text-xs text-gray-400">Productos</p>
-                    </div>
-                    <span className="font-bold">S/ {subtotal.toFixed(2)}</span>
-                  </div>
-                  
-                  {descuento > 0 && (
-                    <div className="flex justify-between items-center py-3 border-b border-gray-700/50">
+                <div className="space-y-3 mb-5">
+                  {[
+                    { label: "Subtotal", sub: "Productos", val: `S/ ${fmt(subtotal)}`, highlight: false },
+                    ...(descuento > 0 ? [{
+                      label: `Descuento ${(descuento * 100).toFixed(0)}%`, sub: "Por volumen",
+                      val: `-S/ ${fmt(descuentoMonto)}`, highlight: true, color: C.green
+                    }] : []),
+                    { label: "Base Imponible", sub: "Antes de IGV", val: `S/ ${fmt(baseImponible)}`, highlight: false },
+                    { label: "IGV (18%)", sub: "Impuesto General", val: `S/ ${fmt(igv)}`, highlight: false, color: C.orange },
+                    { label: "Envío", sub: "Express 24-48h", val: envioCosto === 0 ? "GRATIS" : `S/ ${fmt(envioCosto)}`, highlight: envioCosto === 0, color: envioCosto === 0 ? C.green : undefined },
+                  ].map(({ label, sub, val, highlight, color }, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between items-center py-2.5"
+                      style={{ borderBottom: `1px solid ${C.gray100}` }}
+                    >
                       <div>
-                        <span className="text-sm font-medium text-emerald-400">Descuento por Volumen</span>
-                        <p className="text-xs text-emerald-400/70">-{(descuento * 100).toFixed(0)}%</p>
+                        <p className="text-sm font-semibold text-gray-700" style={highlight && color ? { color } : undefined}>{label}</p>
+                        <p className="text-[10px]" style={{ color: C.gray400 }}>{sub}</p>
                       </div>
-                      <span className="font-bold text-emerald-400">-S/ {descuentoMonto.toFixed(2)}</span>
+                      <span
+                        className="text-sm font-black"
+                        style={{ color: color || C.gray800 }}
+                      >
+                        {val}
+                      </span>
                     </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center py-3 border-b border-gray-700/50">
+                  ))}
+
+                  {/* Total */}
+                  <div
+                    className="flex justify-between items-center py-4 px-4 rounded-xl border mt-2"
+                    style={{ background: `${C.purple}08`, borderColor: `${C.purple}25` }}
+                  >
                     <div>
-                      <span className="text-sm font-medium">Base Imponible</span>
-                      <p className="text-xs text-gray-400">Monto antes de IGV</p>
+                      <p className="text-base font-black text-gray-900">Total a Pagar</p>
+                      <p className="text-[10px]" style={{ color: C.gray500 }}>Incluye IGV • Factura Electrónica</p>
                     </div>
-                    <span className="font-bold">S/ {baseImponible.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-3 border-b border-gray-700/50">
-                    <div>
-                      <span className="text-sm font-medium">IGV (18%)</span>
-                      <p className="text-xs text-gray-400">Impuesto General a las Ventas</p>
-                    </div>
-                    <span className="font-bold text-amber-400">S/ {igv.toFixed(2)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-3 border-b border-gray-700/50">
-                    <div>
-                      <span className="text-sm font-medium">Envío</span>
-                      <p className="text-xs text-gray-400">Express 24-48h</p>
-                    </div>
-                    <span className={`font-bold ${envioCosto === 0 ? 'text-emerald-400' : ''}`}>
-                      {envioCosto === 0 ? 'GRATIS' : `S/ ${envioCosto.toFixed(2)}`}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center py-4 border-t border-gray-600 mt-2">
-                    <div>
-                      <span className="text-lg font-bold">Total a Pagar</span>
-                      <p className="text-xs text-gray-400">Incluye IGV • Factura Electrónica</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                        S/ {totalFinal.toFixed(2)}
-                      </div>
-                    </div>
+                    <p className="text-3xl font-black" style={{ color: C.purple }}>
+                      S/ {fmt(totalFinal)}
+                    </p>
                   </div>
                 </div>
 
-                <button 
+                {/* Botón confirmar */}
+                <button
                   onClick={handleFinalizarPedido}
                   disabled={loading || carrito.length === 0 || !envio.ruc || envio.ruc.length !== 11}
-                  className={`w-full py-4 rounded-xl font-bold text-sm shadow-2xl transition-all flex items-center justify-center gap-2 mb-3 ${
-                    loading || carrito.length === 0 || !envio.ruc || envio.ruc.length !== 11
-                    ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 via-cyan-600 to-emerald-600 hover:from-blue-700 hover:via-cyan-700 hover:to-emerald-700 hover:shadow-lg hover:shadow-blue-500/25'
-                  }`}
+                  className="w-full py-4 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2 mb-3 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    background: loading || carrito.length === 0 || !envio.ruc || envio.ruc.length !== 11
+                      ? C.gray300
+                      : C.purple,
+                    boxShadow: loading || carrito.length === 0 ? "none" : `0 4px 20px ${C.purple}40`,
+                  }}
+                  onMouseEnter={e => { if (!loading && carrito.length > 0 && envio.ruc?.length === 11) (e.currentTarget as HTMLElement).style.background = C.purpleDark; }}
+                  onMouseLeave={e => { if (!loading && carrito.length > 0 && envio.ruc?.length === 11) (e.currentTarget as HTMLElement).style.background = C.purple; }}
                 >
                   {loading ? (
-                    <>
-                      <Loader2 className="animate-spin" size={20} />
-                      Procesando Orden...
-                    </>
+                    <><Loader2 className="animate-spin" size={18} />Procesando Orden...</>
                   ) : carrito.length === 0 ? (
-                    'Agrega productos primero'
+                    "Agrega productos primero"
                   ) : !envio.ruc || envio.ruc.length !== 11 ? (
-                    'Ingresa RUC válido (11 dígitos)'
+                    "Ingresa RUC válido (11 dígitos)"
                   ) : (
-                    <>
-                      <Lock size={20} />
-                      Confirmar Orden B2B
-                      <ArrowRight size={20} />
-                    </>
+                    <><Lock size={16} />Confirmar Orden B2B<ArrowRight size={16} /></>
                   )}
                 </button>
 
                 {carrito.length > 0 && (
-                  <button 
+                  <button
                     onClick={vaciarCarrito}
-                    className="w-full py-3 text-sm font-medium text-gray-400 hover:text-rose-400 hover:bg-gray-800/50 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
+                    style={{ color: C.gray500 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#ef4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.05)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray500; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                     Vaciar carrito
                   </button>
                 )}
               </div>
 
-              {/* BENEFICIOS B2B PERÚ */}
-              <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center gap-2 mb-6">
-                  <Award size={20} className="text-amber-400" />
-                  <h3 className="text-lg font-bold text-white">Ventajas B2B Perú</h3>
+              {/* ── Beneficios B2B ─────────────────────────────── */}
+              <div
+                className="rounded-2xl p-5 border"
+                style={{ background: C.white, borderColor: C.gray200 }}
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <Award size={16} style={{ color: C.yellow }} />
+                  <h3 className="text-sm font-black text-gray-900">Ventajas B2B</h3>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-600/20 to-blue-700/20 rounded-lg flex items-center justify-center">
-                      <FileText size={18} className="text-blue-400" />
+                <div className="space-y-3">
+                  {[
+                    { icon: FileText, color: C.purple, title: "Factura Electrónica", sub: "Validada por SUNAT" },
+                    { icon: Percent,  color: C.green,  title: "Descuentos por Volumen", sub: "Hasta 20% en compras mayoristas" },
+                    { icon: Truck,    color: C.orange, title: "Envío a todo Perú", sub: "Olva / Shalom / OTR Express" },
+                    { icon: ShieldCheck, color: C.purple, title: "Garantía de fábrica", sub: "Todos los productos sellados" },
+                  ].map(({ icon: Icon, color, title, sub }) => (
+                    <div
+                      key={title}
+                      className="flex items-center gap-3 p-3 rounded-xl border"
+                      style={{ background: C.gray100, borderColor: C.gray200 }}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `${color}15` }}
+                      >
+                        <Icon size={16} style={{ color }} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-gray-800">{title}</p>
+                        <p className="text-[10px]" style={{ color: C.gray500 }}>{sub}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">Factura Electrónica</p>
-                      <p className="text-xs text-gray-400">Validada por SUNAT</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-600/20 to-emerald-700/20 rounded-lg flex items-center justify-center">
-                      <Percent size={18} className="text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">Descuentos por Volumen</p>
-                      <p className="text-xs text-gray-400">Hasta 20% en compras mayoristas</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-lg">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-600/20 to-purple-700/20 rounded-lg flex items-center justify-center">
-                      <Truck size={18} className="text-purple-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">Envío a todo Perú</p>
-                      <p className="text-xs text-gray-400">Olva/Shalom/OTR</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
+
+              {/* ── Descuentos por volumen ─────────────────────── */}
+              {descuento === 0 && totalItems < 10 && (
+                <div
+                  className="rounded-2xl p-4 border text-center"
+                  style={{ background: `${C.yellow}08`, borderColor: `${C.yellow}30` }}
+                >
+                  <Zap size={20} style={{ color: C.orange, margin: "0 auto 8px" }} />
+                  <p className="text-xs font-black text-gray-800 mb-1">¡Consigue descuentos!</p>
+                  <p className="text-[10px]" style={{ color: C.gray500 }}>
+                    Compra 10+ unidades y obtén 5% OFF. Más de 100 uds = 20% OFF
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </main>
 
-      {/* FOOTER */}
-      <footer className="mt-12 py-8 border-t border-gray-800/50">
+      {/* ── Footer ──────────────────────────────────────────── */}
+      <footer
+        className="mt-12 py-8"
+        style={{ borderTop: `1px solid ${C.gray200}` }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">B2B Perú</h4>
-              <p className="text-xs text-gray-400">
-                Plataforma B2B especializada en comercio empresarial peruano.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">Soporte</h4>
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400 flex items-center gap-2">
-                  <Phone size={12} />
-                  +51 1 640-9000
-                </p>
-                <p className="text-xs text-gray-400 flex items-center gap-2">
-                  <Mail size={12} />
-                  ventas@b2bperu.com
-                </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+            {[
+              { title: "Tiendas Waly",    content: <p className="text-xs" style={{ color: C.gray500 }}>Plataforma B2B especializada en comercio mayorista peruano.</p> },
+              { title: "Soporte",         content: <div className="space-y-1"><p className="text-xs flex items-center gap-1.5" style={{ color: C.gray500 }}><Phone size={11} />+51 1 640-9000</p><p className="text-xs flex items-center gap-1.5" style={{ color: C.gray500 }}><Mail size={11} />ventas@tiendaswaly.com</p></div> },
+              { title: "Bancos aceptados", content: <div className="flex flex-wrap gap-1.5">{["BCP","BBVA","Interbank"].map(b => <span key={b} className="px-2 py-1 rounded-lg text-xs font-bold" style={{ background: `${C.purple}10`, color: C.purple }}>{b}</span>)}</div> },
+              { title: "RUC",             content: <><p className="text-xs font-mono font-bold text-gray-700">20605467891</p><p className="text-[10px] mt-0.5" style={{ color: C.gray500 }}>TIENDAS WALY SAC</p></> },
+            ].map(({ title, content }) => (
+              <div key={title}>
+                <h4 className="text-sm font-black text-gray-800 mb-3">{title}</h4>
+                {content}
               </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">Bancos</h4>
-              <div className="flex flex-wrap gap-2">
-                <div className="px-2 py-1 bg-gray-800/50 rounded text-xs">BCP</div>
-                <div className="px-2 py-1 bg-gray-800/50 rounded text-xs">BBVA</div>
-                <div className="px-2 py-1 bg-gray-800/50 rounded text-xs">Interbank</div>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">RUC</h4>
-              <p className="text-xs font-mono text-gray-400">20605467891</p>
-              <p className="text-xs text-gray-500 mt-1">B2B PERÚ SAC</p>
-            </div>
+            ))}
           </div>
-          <div className="mt-8 pt-8 border-t border-gray-800 text-center">
-            <p className="text-xs text-gray-500">© 2024 B2B Perú SAC. RUC: 20605467891</p>
+          <div
+            className="pt-6 text-center text-xs"
+            style={{ borderTop: `1px solid ${C.gray200}`, color: C.gray400 }}
+          >
+            © {new Date().getFullYear()} Tiendas Waly SAC • RUC: 20605467891 • Todos los precios en S/ PEN
           </div>
         </div>
       </footer>
