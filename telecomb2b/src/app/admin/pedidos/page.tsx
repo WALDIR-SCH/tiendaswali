@@ -10,6 +10,7 @@ import {
   RefreshCw, AlertCircle, CheckCircle, Clock, Truck, PackageCheck,
   Ban, Archive, TrendingUp, Users, DollarSign, ShoppingBag,
   AlertTriangle, FileSpreadsheet, FileDown, Package, Smartphone,
+  ZoomIn, ExternalLink, CheckCircle2, ImageIcon, FileText as FileTextIcon,
 } from "lucide-react";
 
 /* ─── TIPOS ─── */
@@ -319,13 +320,91 @@ function ModalDetalle({ pedido, productos, onClose, onActualizarEnvio }: {
                 <span style={{ fontSize:13, color:C.gray700, fontWeight:600 }}>Método de pago</span>
                 <span style={{ fontSize:13, fontWeight:700, color:C.gray900 }}>{pedido.metodoPago}</span>
               </div>
-              {pedido.comprobanteUrl && (
-                <div style={{ marginBottom:10 }}>
-                  <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, color:C.purple, fontWeight:700, textDecoration:"none" }}>
-                    <Upload size={13} /> Ver comprobante
-                  </a>
+              {/* ── COMPROBANTE DE PAGO ── */}
+              {pedido.comprobanteUrl ? (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+                    <div style={{ width:28, height:28, borderRadius:8, background:`${C.greenDark}12`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <CheckCircle2 size={14} style={{ color:C.greenDark }} />
+                    </div>
+                    <p style={{ margin:0, fontSize:12, fontWeight:800, color:C.greenDark, textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                      Constancia de Pago Adjunta
+                    </p>
+                  </div>
+
+                  {/* Preview inteligente */}
+                  {pedido.comprobanteUrl.match(/\.(pdf)(\?|$)/i) ? (
+                    /* PDF */
+                    <div style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", borderRadius:12, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                      <div style={{ width:44, height:44, borderRadius:10, background:`${C.purple}12`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        <FileTextIcon size={20} style={{ color:C.purple }} />
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <p style={{ margin:0, fontSize:13, fontWeight:700, color:C.gray900 }}>Comprobante PDF</p>
+                        <p style={{ margin:"2px 0 0", fontSize:11, color:C.gray500 }}>Transferencia bancaria · {pedido.metodoPago}</p>
+                      </div>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"7px 12px", borderRadius:9, background:`linear-gradient(135deg,${C.purple},${C.purpleLight})`, color:C.white, textDecoration:"none", fontSize:11, fontWeight:700 }}>
+                          <ExternalLink size={11} /> Abrir
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Imagen con preview */
+                    <div style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${C.gray200}`, background:C.gray50 }}>
+                      {/* Header imagen */}
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", background:C.white, borderBottom:`1px solid ${C.gray100}` }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <ImageIcon size={13} style={{ color:C.gray500 }} />
+                          <span style={{ fontSize:12, fontWeight:700, color:C.gray700 }}>Captura de transferencia</span>
+                        </div>
+                        <div style={{ display:"flex", gap:6 }}>
+                          <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"5px 10px", borderRadius:8, background:C.purpleBg, color:C.purple, textDecoration:"none", fontSize:11, fontWeight:700, border:`1px solid ${C.purpleBorder}` }}>
+                            <ZoomIn size={11} /> Ampliar
+                          </a>
+                          <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer" download
+                            style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"5px 10px", borderRadius:8, background:C.gray100, color:C.gray700, textDecoration:"none", fontSize:11, fontWeight:700, border:`1px solid ${C.gray200}` }}>
+                            <Upload size={11} /> Descargar
+                          </a>
+                        </div>
+                      </div>
+                      {/* Imagen */}
+                      <div style={{ padding:12, display:"flex", justifyContent:"center", background:C.gray50 }}>
+                        <img
+                          src={pedido.comprobanteUrl}
+                          alt="Constancia de pago"
+                          style={{ maxHeight:220, maxWidth:"100%", objectFit:"contain", borderRadius:8, boxShadow:"0 2px 12px rgba(0,0,0,0.1)", cursor:"pointer" }}
+                          onClick={() => window.open(pedido.comprobanteUrl!, "_blank")}
+                          onError={e => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            const next = (e.target as HTMLImageElement).nextSibling as HTMLElement;
+                            if (next) next.style.display = "flex";
+                          }}
+                        />
+                        {/* Fallback si la imagen no carga */}
+                        <div style={{ display:"none", flexDirection:"column", alignItems:"center", gap:8, padding:"24px" }}>
+                          <FileTextIcon size={28} style={{ color:C.gray400 }} />
+                          <span style={{ fontSize:12, color:C.gray500 }}>No se puede previsualizar</span>
+                          <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize:12, fontWeight:700, color:C.purple, textDecoration:"none" }}>
+                            Abrir en nueva pestaña →
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                pedido.metodoPago === "Transferencia" ? (
+                  <div style={{ marginBottom:12, display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderRadius:10, background:"#fffbeb", border:"1px solid #fde68a" }}>
+                    <AlertCircle size={13} style={{ color:"#b45309", flexShrink:0 }} />
+                    <span style={{ fontSize:12, color:"#92400e", fontWeight:600 }}>
+                      El cliente aún no ha subido la constancia de transferencia.
+                    </span>
+                  </div>
+                ) : null
               )}
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", paddingTop:10, borderTop:`1px solid ${C.purpleBorder}` }}>
                 <span style={{ fontSize:15, fontWeight:800, color:C.gray900 }}>TOTAL</span>
@@ -731,12 +810,16 @@ export default function GestionPedidos() {
                         {/* Pago / Envío */}
                         <td style={{ padding:"14px 16px" }}>
                           <p style={{ margin:0, fontSize:12, color:C.gray700, fontWeight:600 }}>{pedido.metodoPago}</p>
-                          {pedido.comprobanteUrl && (
+                          {pedido.comprobanteUrl ? (
                             <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
-                              style={{ display:"inline-flex", alignItems:"center", gap:3, fontSize:11, color:C.purple, fontWeight:700, textDecoration:"none", marginTop:2 }}>
-                              <Upload size={11} /> Comprobante
+                              style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:3, padding:"2px 8px", borderRadius:8, background:C.greenBg, border:`1px solid ${C.greenBorder}`, fontSize:10, fontWeight:800, color:C.greenDark, textDecoration:"none" }}>
+                              <CheckCircle2 size={10} /> Constancia ↗
                             </a>
-                          )}
+                          ) : pedido.metodoPago === "Transferencia" ? (
+                            <span style={{ display:"inline-flex", alignItems:"center", gap:3, marginTop:3, padding:"2px 8px", borderRadius:8, background:"#fffbeb", border:"1px solid #fde68a", fontSize:10, fontWeight:700, color:"#b45309" }}>
+                              ⏳ Sin constancia
+                            </span>
+                          ) : null}
                           {pedido.trackingNumber ? (
                             <p style={{ margin:"3px 0 0", fontSize:11, color:C.gray400 }}>{pedido.courier} · {pedido.trackingNumber}</p>
                           ) : (

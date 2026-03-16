@@ -16,7 +16,7 @@ import {
   Building, FileText, Mail, Phone,
   Check, FileSignature, Calculator, Award, Receipt,
   Eye, EyeOff, Target, Package, Zap, Box,
-  RefreshCw, User, MapPin
+  RefreshCw, User, MapPin, UploadCloud, ImageIcon, XCircle, AlertCircle
 } from "lucide-react";
 
 /* ─── PALETA ─── */
@@ -114,6 +114,12 @@ export default function CarritoPage() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [orderDetails,     setOrderDetails]     = useState<any>(null);
   const [showCardDetails,  setShowCardDetails]  = useState(false);
+  // ── Constancia de transferencia ──
+  const [constanciaFile,    setConstanciaFile]   = useState<File | null>(null);
+  const [constanciaPreview, setConstanciaPreview]= useState<string>("");
+  const [constanciaUrl,     setConstanciaUrl]    = useState<string>("");
+  const [subiendoConstancia,setSubiendoConstancia]= useState(false);
+  const [pedidoIdGuardado,  setPedidoIdGuardado] = useState<string>("");
   const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set()); // qué campos se llenaron auto
 
   const [envio, setEnvio] = useState({
@@ -175,6 +181,63 @@ export default function CarritoPage() {
   };
   const handleCardInput = (e: React.ChangeEvent<HTMLInputElement>) =>
     setPaymentDetails({ ...paymentDetails, [e.target.name]: e.target.value });
+
+  /* ─── Subir constancia a Cloudinary ─── */
+  const subirConstancia = async (file: File): Promise<string> => {
+    const cn = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const up = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    if (!cn || !up) throw new Error("Cloudinary no configurado");
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", up);
+    fd.append("folder", "constancias_pago");
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${cn}/upload`, { method:"POST", body:fd });
+    const d = await r.json();
+    if (!d.secure_url) throw new Error("Error subiendo archivo");
+    return d.secure_url;
+  };
+
+  const handleConstanciaChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Validar tipo y tamaño
+    const tipos = ["image/png","image/jpeg","image/jpg","application/pdf"];
+    if (!tipos.includes(file.type)) { alert("Solo se permiten PNG, JPG o PDF"); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("El archivo no debe superar 5MB"); return; }
+
+    setConstanciaFile(file);
+    // Preview para imágenes
+    if (file.type !== "application/pdf") {
+      const reader = new FileReader();
+      reader.onloadend = () => setConstanciaPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setConstanciaPreview("pdf");
+    }
+    // Subir inmediatamente
+    setSubiendoConstancia(true);
+    try {
+      const url = await subirConstancia(file);
+      setConstanciaUrl(url);
+      // Si ya hay un pedido guardado, actualizar directamente
+      if (pedidoIdGuardado) {
+        await updateDoc(doc(db, "pedidos", pedidoIdGuardado), {
+          comprobanteUrl: url,
+          estado: "PAGADO",
+          fechaActualizacion: serverTimestamp(),
+        });
+      }
+    } catch {
+      alert("Error al subir el archivo. Intenta nuevamente.");
+      setConstanciaFile(null); setConstanciaPreview(""); setConstanciaUrl("");
+    } finally {
+      setSubiendoConstancia(false);
+    }
+  };
+
+  const quitarConstancia = () => {
+    setConstanciaFile(null); setConstanciaPreview(""); setConstanciaUrl("");
+  };
 
   /* ─── Cálculos IGV ─── */
   const totalItems     = carrito.reduce((a, i) => a + i.cantidad, 0);
@@ -243,7 +306,7 @@ export default function CarritoPage() {
                 unidadesPorCaja:  item.unidadesPorCaja || 10,
               })),
               archived:           false,
-              comprobanteUrl:     null,
+              comprobanteUrl:     constanciaUrl || null,
               trackingNumber:     null,
               urgente:            false,
               nota:               `Pedido B2B - RUC: ${envio.ruc}`,
@@ -268,10 +331,19 @@ export default function CarritoPage() {
               } catch {}
             }
 
+            // Si hay constancia ya subida, actualizarla en el doc recién creado
+            if (constanciaUrl) {
+              await updateDoc(doc(db, "pedidos", docRef.id), {
+                comprobanteUrl: constanciaUrl,
+                estado: "PAGADO",
+              }).catch(() => {});
+            }
+            setPedidoIdGuardado(docRef.id);
             setOrderDetails({
               id:docRef.id, total:totalFinal, items:itemsCopia,
               paymentId:paymentResult.transactionId,
               ruc:envio.ruc, razonSocial:envio.razonSocial,
+              esTransferencia: metodoPago === "transferencia",
             });
             vaciarCarrito();
             setStep(5);
@@ -373,6 +445,28 @@ export default function CarritoPage() {
                 <span style={{ fontSize:12, fontFamily:"monospace", color:C.gray700 }}>#{orderDetails.id.substring(0,8).toUpperCase()}</span>
                 <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>· RUC: {orderDetails.ruc}</span>
               </div>
+
+            {/* Upload constancia post-pedido si es transferencia y no se subió aún */}
+            {orderDetails.esTransferencia && !constanciaUrl && (
+              <div style={{ marginTop:16, padding:"14px 16px", borderRadius:14, background:"#fffbeb", border:"1.5px solid #fde68a" }}>
+                <p style={{ fontSize:13, fontWeight:800, color:"#92400e", margin:"0 0 8px", display:"flex", alignItems:"center", gap:6 }}>
+                  <AlertCircle size={14} style={{ color:"#b45309" }} />
+                  Sube tu constancia para agilizar la verificación
+                </p>
+                <label style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 14px", borderRadius:10, background:C.white, border:"1px solid #fde68a", cursor:"pointer" }}>
+                  {subiendoConstancia
+                    ? <><Loader2 size={14} style={{ color:C.purpleDark, animation:"spin .75s linear infinite" }} /><span style={{ fontSize:12, color:C.purpleDark, fontWeight:700 }}>Subiendo...</span></>
+                    : <><UploadCloud size={14} style={{ color:C.purpleDark }} /><span style={{ fontSize:12, color:C.purpleDark, fontWeight:700 }}>Subir constancia de pago (PNG/JPG/PDF)</span></>}
+                  <input type="file" accept=".png,.jpg,.jpeg,.pdf" onChange={handleConstanciaChange} style={{ display:"none" }} />
+                </label>
+              </div>
+            )}
+            {orderDetails.esTransferencia && constanciaUrl && (
+              <div style={{ marginTop:14, display:"flex", alignItems:"center", gap:8, padding:"10px 14px", borderRadius:12, background:`${C.greenDark}10`, border:`1px solid ${C.greenDark}30` }}>
+                <CheckCircle2 size={16} style={{ color:C.greenDark }} />
+                <span style={{ fontSize:13, fontWeight:700, color:C.greenDark }}>Constancia subida. El admin verificará tu pago.</span>
+              </div>
+            )}
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:22 }}>
               <div style={{ padding:"14px 16px", borderRadius:14, background:`${C.purple}06`, border:`1px solid ${C.purple}20` }}>
@@ -555,19 +649,87 @@ export default function CarritoPage() {
               </div>
 
               {metodoPago === "transferencia" && (
-                <div style={{ borderRadius:12, padding:16, background:C.gray50, border:`1px solid ${C.gray200}` }}>
-                  <h4 style={{ fontSize:13, fontWeight:900, color:C.gray800, margin:"0 0 12px" }}>Datos para Transferencia — BCP</h4>
-                  {[["Banco","BCP"],["Cuenta Corriente","191-23456789-0-99"],["CCI","00219100234567899099"],["Titular","TIENDAS WALY SAC"],["RUC","20605467891"]].map(([k,v])=>(
-                    <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, background:C.white, marginBottom:6 }}>
-                      <span style={{ fontSize:12, color:C.gray500 }}>{k}:</span>
-                      <span style={{ fontSize:12, fontWeight:700, fontFamily:"monospace", color:C.gray900 }}>{v}</span>
-                    </div>
-                  ))}
-                  <div style={{ marginTop:10, padding:"10px 12px", borderRadius:10, background:`${C.purpleDark}08`, border:`1px solid ${C.purpleDark}20` }}>
-                    <p style={{ fontSize:12, color:C.purpleDark, margin:0, fontWeight:600 }}>
-                      <strong>Importante:</strong> Envía el comprobante a facturacion@tiendaswaly.com con tu RUC y número de pedido.
-                    </p>
+                <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                  {/* Datos bancarios */}
+                  <div style={{ borderRadius:12, padding:16, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                    <h4 style={{ fontSize:13, fontWeight:900, color:C.gray800, margin:"0 0 12px" }}>Datos para Transferencia — BCP</h4>
+                    {[["Banco","BCP"],["Cuenta Corriente","191-23456789-0-99"],["CCI","00219100234567899099"],["Titular","TIENDAS WALY SAC"],["RUC","20605467891"]].map(([k,v])=>(
+                      <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, background:C.white, marginBottom:6 }}>
+                        <span style={{ fontSize:12, color:C.gray500 }}>{k}:</span>
+                        <span style={{ fontSize:12, fontWeight:700, fontFamily:"monospace", color:C.gray900 }}>{v}</span>
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Subir constancia */}
+                  <div style={{ borderRadius:12, padding:16, background:C.white, border:`2px dashed ${constanciaUrl ? C.greenDark : C.gray300}`, transition:"border-color .2s" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                      <div style={{ width:32, height:32, borderRadius:9, background: constanciaUrl ? `${C.greenDark}12` : `${C.purpleDark}10`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                        {constanciaUrl
+                          ? <CheckCircle2 size={16} style={{ color:C.greenDark }} />
+                          : <UploadCloud size={16} style={{ color:C.purpleDark }} />}
+                      </div>
+                      <div>
+                        <p style={{ fontSize:13, fontWeight:800, color: constanciaUrl ? C.greenDark : C.gray900, margin:0 }}>
+                          {constanciaUrl ? "✓ Constancia subida correctamente" : "Subir constancia de pago"}
+                        </p>
+                        <p style={{ fontSize:11, color:C.gray500, margin:0 }}>
+                          {constanciaUrl ? "El admin podrá verificar tu pago" : "PNG, JPG o PDF · Máx. 5MB"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Preview */}
+                    {constanciaPreview && (
+                      <div style={{ marginBottom:12, position:"relative", display:"inline-block" }}>
+                        {constanciaPreview === "pdf" ? (
+                          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", borderRadius:10, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                            <FileText size={24} style={{ color:C.purpleDark }} />
+                            <div>
+                              <p style={{ margin:0, fontSize:12, fontWeight:700, color:C.gray900 }}>{constanciaFile?.name}</p>
+                              <p style={{ margin:0, fontSize:11, color:C.gray500 }}>{((constanciaFile?.size||0)/1024).toFixed(0)} KB · PDF</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <img src={constanciaPreview} alt="Constancia"
+                            style={{ maxHeight:160, maxWidth:"100%", borderRadius:10, objectFit:"contain", border:`1px solid ${C.gray200}` }} />
+                        )}
+                        <button onClick={quitarConstancia}
+                          style={{ position:"absolute", top:-8, right:-8, width:22, height:22, borderRadius:"50%", background:"#ef4444", border:"2px solid #fff", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                          <XCircle size={13} color="#fff" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Estado subida */}
+                    {subiendoConstancia && (
+                      <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:8, background:`${C.purpleDark}08`, marginBottom:10 }}>
+                        <Loader2 size={14} style={{ color:C.purpleDark, animation:"spin .75s linear infinite" }} />
+                        <span style={{ fontSize:12, color:C.purpleDark, fontWeight:600 }}>Subiendo archivo...</span>
+                      </div>
+                    )}
+
+                    {/* Input file */}
+                    {!constanciaFile && (
+                      <label style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, padding:"10px 16px", borderRadius:10, background:`${C.purpleDark}08`, border:`1px solid ${C.purpleDark}25`, cursor:"pointer", transition:"all .2s" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background=`${C.purpleDark}14`; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background=`${C.purpleDark}08`; }}>
+                        <ImageIcon size={15} style={{ color:C.purpleDark }} />
+                        <span style={{ fontSize:13, fontWeight:700, color:C.purpleDark }}>Seleccionar archivo</span>
+                        <input type="file" accept=".png,.jpg,.jpeg,.pdf" onChange={handleConstanciaChange} style={{ display:"none" }} />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Aviso sin constancia */}
+                  {!constanciaUrl && (
+                    <div style={{ display:"flex", alignItems:"flex-start", gap:8, padding:"10px 12px", borderRadius:10, background:"#fffbeb", border:"1px solid #fde68a" }}>
+                      <AlertCircle size={14} style={{ color:"#b45309", flexShrink:0, marginTop:1 }} />
+                      <p style={{ fontSize:12, color:"#92400e", margin:0, fontWeight:600 }}>
+                        Puedes continuar sin subir la constancia ahora, pero tu pedido quedará en estado <strong>Pendiente</strong> hasta que el admin verifique el pago.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
