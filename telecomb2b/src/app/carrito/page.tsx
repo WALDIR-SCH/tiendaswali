@@ -2,37 +2,42 @@
 import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment } from "firebase/firestore";
+import {
+  collection, addDoc, serverTimestamp, doc, updateDoc,
+  increment, getDoc
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import {
   CreditCard, Landmark, ShieldCheck, Plus, Minus, Trash2,
   ChevronLeft, Lock, PackageCheck, Truck,
   CheckCircle2, Loader2, ShoppingBag,
   ArrowRight, Percent, Download,
-  Building, FileText, Bell, Mail, Phone,
-  Check, QrCode,
-  FileSignature, Calculator, Award, Receipt,
-  Eye, EyeOff, UserCheck, Target, BarChart3,
-  Package, Zap
+  Building, FileText, Mail, Phone,
+  Check, FileSignature, Calculator, Award, Receipt,
+  Eye, EyeOff, Target, Package, Zap, Box,
+  RefreshCw, User, MapPin
 } from "lucide-react";
 
-// ─── PALETA OFICIAL ────────────────────────────────────────────
+/* ─── PALETA ─── */
 const C = {
-  orange:  "#FF6600",
-  yellow:  "#F6FA00",
-  green:   "#28FB4B",
-  purple:  "#9851F9",
+  orange:     "#FF6600",
+  yellow:     "#F6FA00",
+  green:      "#28FB4B",
+  greenDark:  "#16a34a",
+  purple:     "#9851F9",
   purpleDark: "#7c3aed",
-  black:   "#000000",
-  white:   "#FFFFFF",
-  gray100: "#F3F4F6",
-  gray200: "#E5E7EB",
-  gray300: "#D1D5DB",
-  gray400: "#9CA3AF",
-  gray500: "#6B7280",
-  gray600: "#4B5563",
-  gray700: "#374151",
-  gray800: "#1F2937",
+  white:      "#FFFFFF",
+  gray50:     "#F9FAFB",
+  gray100:    "#F3F4F6",
+  gray200:    "#E5E7EB",
+  gray300:    "#D1D5DB",
+  gray400:    "#9CA3AF",
+  gray500:    "#6B7280",
+  gray600:    "#4B5563",
+  gray700:    "#374151",
+  gray800:    "#1F2937",
+  gray900:    "#111827",
 } as const;
 
 const fmt = (n: number) =>
@@ -43,77 +48,135 @@ const simulatePayment = async (amount: number, method: string) =>
     setTimeout(() => resolve({
       success: true,
       transactionId: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      amount, method,
-      timestamp: new Date().toISOString()
+      amount, method, timestamp: new Date().toISOString(),
     }), 2000)
   );
 
-// ─── INPUT REUTILIZABLE ────────────────────────────────────────
+/* ─── FIELD ─── */
 const Field = ({
   label, name, value, onChange, placeholder, type = "text",
-  maxLength, required, className = "", readOnly = false
+  maxLength, required, readOnly = false, autoFilled = false,
 }: {
   label: string; name: string; value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string; type?: string; maxLength?: number;
-  required?: boolean; className?: string; readOnly?: boolean;
+  required?: boolean; readOnly?: boolean; autoFilled?: boolean;
 }) => (
   <div>
-    <label className="text-xs font-bold mb-1.5 block" style={{ color: C.gray600 }}>
-      {label}{required && <span style={{ color: C.orange }}> *</span>}
-    </label>
-    <input
-      name={name} value={value} onChange={onChange}
-      placeholder={placeholder} type={type}
-      maxLength={maxLength} readOnly={readOnly}
-      className={`w-full px-4 py-3 rounded-xl text-sm font-medium outline-none transition-all border-2 ${className}`}
-      style={{
-        background: readOnly ? C.gray100 : C.white,
-        borderColor: C.gray200,
-        color: C.gray800,
-      }}
-      onFocus={e => { if (!readOnly) e.currentTarget.style.borderColor = C.purple; }}
-      onBlur={e => { e.currentTarget.style.borderColor = C.gray200; }}
-    />
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+      <label style={{ fontSize:12, fontWeight:700, color:C.gray600 }}>
+        {label}{required && <span style={{ color:C.orange }}> *</span>}
+      </label>
+      {autoFilled && !readOnly && (
+        <span style={{ fontSize:9, fontWeight:800, color:C.greenDark, background:`${C.green}15`, padding:"1px 6px", borderRadius:6, border:`1px solid ${C.green}30` }}>
+          ✓ Auto
+        </span>
+      )}
+    </div>
+    <div style={{ position:"relative" }}>
+      <input
+        name={name} value={value} onChange={onChange}
+        placeholder={placeholder} type={type}
+        maxLength={maxLength} readOnly={readOnly}
+        style={{
+          width:"100%", padding:"10px 14px",
+          paddingRight: autoFilled && !readOnly ? 36 : 14,
+          borderRadius:11,
+          border:`1.5px solid ${autoFilled && !readOnly ? `${C.greenDark}50` : C.gray200}`,
+          fontSize:13, outline:"none", color:C.gray900,
+          background: readOnly ? C.gray100 : autoFilled ? `${C.green}06` : C.white,
+          transition:"border-color .2s, background .2s",
+        }}
+        onFocus={e => { if (!readOnly) { e.target.style.borderColor = C.purpleDark; e.target.style.background = C.white; e.target.style.boxShadow = `0 0 0 3px ${C.purpleDark}15`; } }}
+        onBlur={e => {
+          e.target.style.borderColor = autoFilled && !readOnly ? `${C.greenDark}50` : C.gray200;
+          e.target.style.background  = readOnly ? C.gray100 : autoFilled ? `${C.green}06` : C.white;
+          e.target.style.boxShadow   = "none";
+        }}
+      />
+      {autoFilled && !readOnly && value && (
+        <CheckCircle2 size={14} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", color:C.greenDark, pointerEvents:"none" }} />
+      )}
+    </div>
   </div>
 );
 
-// ═════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════ */
 export default function CarritoPage() {
-  const { carrito, total, agregarAlCarrito, actualizarCantidad, reducirCantidad, eliminarDelCarrito, vaciarCarrito } = useCart();
+  const { carrito, total, actualizarCantidad, eliminarDelCarrito, vaciarCarrito } = useCart();
   const router = useRouter();
 
-  const [metodoPago, setMetodoPago] = useState<"tarjeta" | "transferencia">("transferencia");
-  const [loading,           setLoading]           = useState(false);
-  const [showModal,         setShowModal]          = useState(false);
-  const [step,              setStep]               = useState(1);
-  const [showConfirmation,  setShowConfirmation]   = useState(false);
-  const [orderDetails,      setOrderDetails]       = useState<any>(null);
-  const [showCardDetails,   setShowCardDetails]    = useState(false);
+  const [metodoPago,       setMetodoPago]       = useState<"tarjeta"|"transferencia">("transferencia");
+  const [loading,          setLoading]          = useState(false);
+  const [loadingUser,      setLoadingUser]      = useState(true);  // cargando datos usuario
+  const [showModal,        setShowModal]        = useState(false);
+  const [step,             setStep]             = useState(1);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [orderDetails,     setOrderDetails]     = useState<any>(null);
+  const [showCardDetails,  setShowCardDetails]  = useState(false);
+  const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set()); // qué campos se llenaron auto
 
   const [envio, setEnvio] = useState({
-    direccion: "", ciudad: "Lima", telefono: "",
-    ruc: "", razonSocial: "", contacto: "", email: "", referencia: ""
+    ruc:"", razonSocial:"", contacto:"", email:"",
+    telefono:"", direccion:"", referencia:"", ciudad:"Lima",
   });
   const [paymentDetails, setPaymentDetails] = useState({
-    cardNumber: "", expiry: "", cvv: "", cardholder: ""
+    cardNumber:"", expiry:"", cvv:"", cardholder:"",
   });
 
+  /* ─── Auto-completar datos desde Firestore ─── */
   useEffect(() => {
-    const u = auth.currentUser;
-    if (u) setEnvio(p => ({
-      ...p,
-      email:    u.email || "",
-      contacto: u.displayName || u.email?.split("@")[0] || ""
-    }));
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) { setLoadingUser(false); return; }
+
+      // Primero rellenar con datos de auth (rápido)
+      const autoFields = new Set<string>();
+      const updates: Partial<typeof envio> = {};
+
+      if (user.email)       { updates.email    = user.email;                          autoFields.add("email"); }
+      if (user.displayName) { updates.contacto = user.displayName;                   autoFields.add("contacto"); }
+
+      // Luego leer documento completo de Firestore
+      try {
+        const userDoc = await getDoc(doc(db, "usuarios", user.uid));
+        if (userDoc.exists()) {
+          const d = userDoc.data();
+
+          // RUC y Razón Social (de datosEnvio o campos directos)
+          const ruc          = d.ruc          || d.clienteRut    || d.datosEnvio?.ruc          || "";
+          const razonSocial  = d.razonSocial  || d.nombreComercial || d.datosEnvio?.razonSocial  || d.clienteNombre || "";
+          const nombre       = d.nombre       || d.displayName   || user.displayName             || "";
+          const telefono     = d.telefono     || d.clienteTelefono || d.datosEnvio?.telefono    || "";
+          const direccion    = d.direccionFiscal || d.clienteDireccion || d.datosEnvio?.direccion || "";
+          const ciudad       = d.ciudad       || d.departamento  || "Lima";
+          const email        = d.email        || user.email      || "";
+
+          if (ruc)         { updates.ruc         = ruc;         autoFields.add("ruc"); }
+          if (razonSocial) { updates.razonSocial  = razonSocial; autoFields.add("razonSocial"); }
+          if (nombre)      { updates.contacto     = nombre;      autoFields.add("contacto"); }
+          if (telefono)    { updates.telefono     = telefono;    autoFields.add("telefono"); }
+          if (direccion)   { updates.direccion    = direccion;   autoFields.add("direccion"); }
+          if (ciudad)      { updates.ciudad       = ciudad;      autoFields.add("ciudad"); }
+          if (email)       { updates.email        = email;       autoFields.add("email"); }
+        }
+      } catch (e) { console.error("Error cargando datos usuario:", e); }
+
+      setEnvio(prev => ({ ...prev, ...updates }));
+      setAutoFilledFields(autoFields);
+      setLoadingUser(false);
+    });
+    return () => unsub();
   }, []);
 
-  const handleInput  = (e: React.ChangeEvent<HTMLInputElement>) =>
+  const handleInput     = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEnvio({ ...envio, [e.target.name]: e.target.value });
+    // Si el usuario edita un campo, ya no es "auto"
+    setAutoFilledFields(prev => { const n = new Set(prev); n.delete(e.target.name); return n; });
+  };
   const handleCardInput = (e: React.ChangeEvent<HTMLInputElement>) =>
     setPaymentDetails({ ...paymentDetails, [e.target.name]: e.target.value });
 
-  // ── Cálculos IGV Perú ────────────────────────────────────────
+  /* ─── Cálculos IGV ─── */
   const totalItems     = carrito.reduce((a, i) => a + i.cantidad, 0);
   const descuento      = totalItems >= 100 ? 0.20 : totalItems >= 50 ? 0.15 : totalItems >= 20 ? 0.10 : totalItems >= 10 ? 0.05 : 0;
   const subtotal       = total;
@@ -123,19 +186,16 @@ export default function CarritoPage() {
   const envioCosto     = carrito.length > 0 ? (subtotal > 1000 ? 0 : 25) : 0;
   const totalFinal     = baseImponible + envioCosto + igv;
 
-  // ── Finalizar pedido ─────────────────────────────────────────
+  /* ─── Cuántos campos se llenaron automáticamente ─── */
+  const camposAutoCount = autoFilledFields.size;
+
+  /* ─── Finalizar pedido ─── */
   const handleFinalizarPedido = async () => {
     const u = auth.currentUser;
     if (!u) { router.push("/login?redirect=/carrito"); return; }
-    if (!envio.ruc || envio.ruc.length !== 11) {
-      alert("Ingresa un RUC válido (11 dígitos).");
-      return;
-    }
-    if (!envio.razonSocial) {
-      alert("Ingresa la Razón Social para la factura.");
-      return;
-    }
-    if (carrito.length === 0) { alert("Tu carrito está vacío."); return; }
+    if (!envio.ruc || envio.ruc.length !== 11) { alert("Ingresa un RUC válido (11 dígitos)."); return; }
+    if (!envio.razonSocial)                    { alert("Ingresa la Razón Social para la factura."); return; }
+    if (carrito.length === 0)                  { alert("Tu carrito está vacío."); return; }
 
     setLoading(true); setShowModal(true); setStep(1);
     const itemsCopia = [...carrito];
@@ -159,30 +219,42 @@ export default function CarritoPage() {
               estado:           "Pendiente",
               metodoPago:       metodoPago === "tarjeta" ? "Tarjeta" : "Transferencia",
               total:            Number(totalFinal.toFixed(2)),
+              datosEnvio: {
+                ruc:          envio.ruc,
+                razonSocial:  envio.razonSocial,
+                contacto:     envio.contacto,
+                email:        envio.email,
+                telefono:     envio.telefono,
+                direccion:    envio.direccion,
+                ciudad:       envio.ciudad,
+                referencia:   envio.referencia,
+              },
               items: itemsCopia.map(item => ({
-                id:              item.id,
-                nombre:          item.nombre || "Producto B2B",
-                sku:             item.sku || "",
-                precio:          Number(item.precioBase) || 0,
-                cantidad:        Number(item.cantidad) || 1,
+                id:               item.id,
+                idOriginal:       item.idOriginal || item.id,
+                nombre:           item.nombre || "Producto B2B",
+                sku:              item.sku || "",
+                precioBase:       Number(item.precioBase) || 0,
+                precio:           Number(item.precioBase) || 0,
+                cantidad:         Number(item.cantidad) || 1,
                 imagen_principal: item.imagen_principal || item.imagenUrl || "",
-                imagenUrl:       item.imagenUrl || item.imagen_principal || "",
-                tipoCompra:      item.tipoCompra || "caja",
-                unidadesPorCaja: item.unidadesPorCaja || 1,
+                imagenUrl:        item.imagenUrl || item.imagen_principal || "",
+                tipoCompra:       item.tipoCompra || "caja",
+                unidadesPorCaja:  item.unidadesPorCaja || 10,
               })),
-              archived:         false,
-              comprobanteUrl:   null,
-              trackingNumber:   null,
-              urgente:          false,
-              nota:             `Pedido B2B - RUC: ${envio.ruc}`,
-              notaInterna:      `Método: ${metodoPago} | Transacción: ${paymentResult.transactionId}`,
+              archived:           false,
+              comprobanteUrl:     null,
+              trackingNumber:     null,
+              urgente:            false,
+              nota:               `Pedido B2B - RUC: ${envio.ruc}`,
+              notaInterna:        `Método: ${metodoPago} | TRX: ${paymentResult.transactionId}`,
               fechaActualizacion: serverTimestamp(),
               historialEstados: [{
                 estado:  "Pendiente",
                 fecha:   new Date().toISOString(),
                 usuario: u.email || "sistema",
-                nota:    "Pedido creado desde carrito B2B"
-              }]
+                nota:    "Pedido creado desde carrito B2B",
+              }],
             });
 
             // Actualizar stock
@@ -193,13 +265,13 @@ export default function CarritoPage() {
                   stock_cajas:    item.tipoCompra === "caja"   ? increment(-item.cantidad) : increment(0),
                   stock_unidades: item.tipoCompra === "unidad" ? increment(-item.cantidad) : increment(0),
                 });
-              } catch (e) { console.error("Stock error:", e); }
+              } catch {}
             }
 
             setOrderDetails({
-              id: docRef.id, total: totalFinal, items: itemsCopia,
-              paymentId: paymentResult.transactionId,
-              ruc: envio.ruc, razonSocial: envio.razonSocial
+              id:docRef.id, total:totalFinal, items:itemsCopia,
+              paymentId:paymentResult.transactionId,
+              ruc:envio.ruc, razonSocial:envio.razonSocial,
             });
             vaciarCarrito();
             setStep(5);
@@ -218,401 +290,308 @@ export default function CarritoPage() {
     }
   };
 
-  const generateInvoice = () => {
-    if (!orderDetails) return;
-    alert(`✅ Factura generada\n\nPedido: #${orderDetails.id.substring(0, 8).toUpperCase()}\nRUC: ${envio.ruc}\nRazón Social: ${envio.razonSocial}\nTotal: S/ ${fmt(orderDetails.total)}\n\nSe enviará a: ${envio.email}`);
-  };
-
-  // ── Pasos del modal ──────────────────────────────────────────
-  const STEPS = [
-    { step: 1, title: "Validando Stock",    desc: "Verificación en almacén",      icon: PackageCheck },
-    { step: 2, title: "Validación RUC",     desc: "Verificación SUNAT",           icon: FileText },
-    { step: 3, title: "Procesando Pago",    desc: "Autorización bancaria",        icon: CreditCard },
-    { step: 4, title: "Generando Pedido",   desc: "Creación en sistema",          icon: FileSignature },
-    { step: 5, title: "Facturación",        desc: "Generando Factura Electrónica", icon: Receipt },
+  const STEPS_MODAL = [
+    { step:1, title:"Validando Stock",   desc:"Verificación en almacén",        icon:PackageCheck  },
+    { step:2, title:"Validación RUC",    desc:"Verificación SUNAT",             icon:FileText      },
+    { step:3, title:"Procesando Pago",   desc:"Autorización bancaria",          icon:CreditCard    },
+    { step:4, title:"Generando Pedido",  desc:"Creación en sistema",            icon:FileSignature },
+    { step:5, title:"Facturación",       desc:"Generando Factura Electrónica",  icon:Receipt       },
   ];
 
-  // ════════════════════════════════════════════════════════════
-  // RENDER
-  // ════════════════════════════════════════════════════════════
+  /* ═══ RENDER ═══ */
   return (
-    <div className="min-h-screen" style={{ background: C.white }}>
+    <div style={{ minHeight:"100vh", background:C.white, fontFamily:"'Plus Jakarta Sans',system-ui,sans-serif" }}>
 
-      {/* ── Modal procesamiento ─────────────────────────────── */}
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.5} }
+        @keyframes slideDown { from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)} }
+      `}</style>
+
+      {/* ── Modal procesamiento ── */}
       {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl p-8 border shadow-2xl space-y-5"
-            style={{ background: C.white, borderColor: `${C.purple}30` }}
-          >
-            {/* Icono */}
-            <div className="text-center space-y-2">
-              <div
-                className="w-16 h-16 mx-auto rounded-full flex items-center justify-center"
-                style={{ background: `${C.purple}15`, border: `2px solid ${C.purple}30` }}
-              >
-                <Building size={28} style={{ color: C.purple }} />
+        <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:16, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(8px)" }}>
+          <div style={{ width:"100%", maxWidth:440, borderRadius:22, padding:32, border:`1px solid ${C.purple}30`, background:C.white, boxShadow:"0 24px 80px rgba(0,0,0,0.25)", display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ textAlign:"center" }}>
+              <div style={{ width:64, height:64, borderRadius:"50%", background:`${C.purple}15`, border:`2px solid ${C.purple}30`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
+                <Building size={28} style={{ color:C.purple }} />
               </div>
-              <h2 className="text-xl font-black text-gray-900">Procesando Orden B2B</h2>
-              <p className="text-sm" style={{ color: C.gray500 }}>Validando RUC y datos SUNAT</p>
+              <h2 style={{ fontSize:18, fontWeight:900, color:C.gray900, margin:"0 0 4px" }}>Procesando Orden B2B</h2>
+              <p style={{ fontSize:13, color:C.gray500, margin:0 }}>Validando RUC y datos SUNAT</p>
             </div>
-
-            {/* Steps */}
-            <div className="space-y-3">
-              {STEPS.map(({ step: s, title, desc, icon: Icon }) => (
-                <div
-                  key={s}
-                  className="flex items-center gap-3 p-3 rounded-xl border"
-                  style={{
-                    background: step >= s ? `${C.purple}08` : C.gray100,
-                    borderColor: step >= s ? `${C.purple}25` : C.gray200,
-                  }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: step >= s ? C.purple : C.gray200 }}
-                  >
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {STEPS_MODAL.map(({ step:s, title, desc, icon:Icon }) => (
+                <div key={s} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", borderRadius:12, background: step>=s ? `${C.purple}08` : C.gray100, border:`1px solid ${step>=s ? `${C.purple}25` : C.gray200}` }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background: step>=s ? C.purple : C.gray300, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
                     {step > s
                       ? <CheckCircle2 size={18} color={C.white} />
                       : step === s
-                        ? <Loader2 size={18} color={C.white} className="animate-spin" />
-                        : <Icon size={18} color={C.gray400} />
-                    }
+                        ? <Loader2 size={18} color={C.white} style={{ animation:"spin .75s linear infinite" }} />
+                        : <Icon size={18} color={C.white} />}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-gray-800">{title}</p>
-                    <p className="text-xs" style={{ color: C.gray500 }}>{desc}</p>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:C.gray900, margin:0 }}>{title}</p>
+                    <p style={{ fontSize:11, color:C.gray500, margin:0 }}>{desc}</p>
                   </div>
                   {step === s && (
-                    <span
-                      className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                      style={{ background: `${C.purple}15`, color: C.purple }}
-                    >
+                    <span style={{ fontSize:9, fontWeight:800, padding:"2px 8px", borderRadius:20, background:`${C.purple}15`, color:C.purple }}>
                       En proceso
                     </span>
                   )}
                 </div>
               ))}
             </div>
-
-            {/* Barra progreso */}
             <div>
-              <div className="flex justify-between text-xs mb-1.5" style={{ color: C.gray500 }}>
-                <span>Progreso: {Math.round((step / 5) * 100)}%</span>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:12, color:C.gray500, marginBottom:6 }}>
+                <span>Progreso: {Math.round((step/5)*100)}%</span>
                 <span>Paso {step} de 5</span>
               </div>
-              <div className="w-full h-2 rounded-full" style={{ background: C.gray200 }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${(step / 5) * 100}%`, background: `linear-gradient(90deg,${C.purple},${C.orange})` }}
-                />
+              <div style={{ width:"100%", height:8, borderRadius:4, background:C.gray200 }}>
+                <div style={{ height:"100%", borderRadius:4, width:`${(step/5)*100}%`, background:`linear-gradient(90deg,${C.purpleDark},${C.orange})`, transition:"width .5s ease" }} />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Modal confirmación ──────────────────────────────── */}
+      {/* ── Modal confirmación ── */}
       {showConfirmation && orderDetails && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl p-8 border shadow-2xl relative"
-            style={{ background: C.white, borderColor: `${C.purple}25` }}
-          >
-            {/* Check badge */}
-            <div
-              className="absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center"
-              style={{ background: C.green }}
-            >
-              <Check size={24} color={C.black} />
+        <div style={{ position:"fixed", inset:0, zIndex:50, display:"flex", alignItems:"center", justifyContent:"center", padding:16, background:"rgba(0,0,0,0.75)", backdropFilter:"blur(8px)" }}>
+          <div style={{ width:"100%", maxWidth:480, borderRadius:22, padding:32, border:`1px solid ${C.purple}25`, background:C.white, boxShadow:"0 24px 80px rgba(0,0,0,0.25)", position:"relative" }}>
+            {/* Badge check */}
+            <div style={{ position:"absolute", top:-20, right:-16, width:48, height:48, borderRadius:"50%", background:C.green, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:`0 4px 16px ${C.green}50` }}>
+              <Check size={22} color="#000" />
             </div>
-
-            <div className="text-center mb-6">
-              <div
-                className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
-                style={{ background: `${C.green}15` }}
-              >
-                <CheckCircle2 size={40} style={{ color: C.green }} />
+            <div style={{ textAlign:"center", marginBottom:24 }}>
+              <div style={{ width:80, height:80, borderRadius:"50%", background:`${C.green}12`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px" }}>
+                <CheckCircle2 size={38} style={{ color:C.greenDark }} />
               </div>
-              <h2 className="text-2xl font-black text-gray-900 mb-1">¡Orden Confirmada!</h2>
-              <p className="text-sm" style={{ color: C.gray500 }}>Tu pedido B2B fue procesado exitosamente</p>
-              <div
-                className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full text-sm font-mono border"
-                style={{ background: C.gray100, borderColor: C.gray200, color: C.gray600 }}
-              >
-                #{orderDetails.id.substring(0, 8).toUpperCase()}
-                <span style={{ color: C.green }}>• RUC: {orderDetails.ruc}</span>
+              <h2 style={{ fontSize:22, fontWeight:900, color:C.gray900, margin:"0 0 6px" }}>¡Orden Confirmada!</h2>
+              <p style={{ fontSize:13, color:C.gray500, margin:0 }}>Tu pedido B2B fue procesado exitosamente</p>
+              <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginTop:12, padding:"6px 16px", borderRadius:20, background:C.gray100, border:`1px solid ${C.gray200}` }}>
+                <span style={{ fontSize:12, fontFamily:"monospace", color:C.gray700 }}>#{orderDetails.id.substring(0,8).toUpperCase()}</span>
+                <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>· RUC: {orderDetails.ruc}</span>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-5 mb-6">
-              <div
-                className="rounded-xl p-4 border"
-                style={{ background: `${C.purple}06`, borderColor: `${C.purple}20` }}
-              >
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.purple }}>
-                  Detalles de Pago
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span style={{ color: C.gray500 }}>Total:</span>
-                    <span className="font-black text-gray-900">S/ {fmt(orderDetails.total)}</span>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14, marginBottom:22 }}>
+              <div style={{ padding:"14px 16px", borderRadius:14, background:`${C.purple}06`, border:`1px solid ${C.purple}20` }}>
+                <p style={{ fontSize:10, fontWeight:800, color:C.purple, textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 10px" }}>Detalles de Pago</p>
+                {[["Total", `S/ ${fmt(orderDetails.total)}`],["IGV 18%",`S/ ${fmt(orderDetails.total*0.18/1.18)}`],["ID",orderDetails.paymentId.slice(-10)]].map(([k,v])=>(
+                  <div key={k} style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                    <span style={{ fontSize:12, color:C.gray500 }}>{k}:</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:C.gray900, fontFamily:k==="ID"?"monospace":"inherit" }}>{v}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: C.gray500 }}>IGV 18%:</span>
-                    <span className="font-medium text-gray-700">S/ {fmt(orderDetails.total * 0.18 / 1.18)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: C.gray500 }}>ID:</span>
-                    <span className="font-mono text-xs text-gray-600 truncate max-w-[100px]">{orderDetails.paymentId}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-
-              <div
-                className="rounded-xl p-4 border"
-                style={{ background: `${C.orange}06`, borderColor: `${C.orange}20` }}
-              >
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.orange }}>
-                  Próximos Pasos
-                </h3>
-                <div className="space-y-2">
-                  {[
-                    { icon: Mail,  color: C.purple, text: `Factura a ${envio.email.split("@")[0]}…` },
-                    { icon: Truck, color: C.green,  text: "Envío 24-48h hábiles" },
-                    { icon: FileText, color: C.orange, text: `RUC ${envio.ruc} verificado` },
-                  ].map(({ icon: Icon, color, text }, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs" style={{ color: C.gray600 }}>
-                      <Icon size={13} style={{ color }} />
-                      {text}
-                    </div>
-                  ))}
-                </div>
+              <div style={{ padding:"14px 16px", borderRadius:14, background:`${C.orange}06`, border:`1px solid ${C.orange}20` }}>
+                <p style={{ fontSize:10, fontWeight:800, color:C.orange, textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 10px" }}>Próximos Pasos</p>
+                {[
+                  { icon:Mail,     color:C.purple, text:`Factura a ${envio.email.split("@")[0]}…`     },
+                  { icon:Truck,    color:C.greenDark, text:"Envío 24-48h hábiles"                    },
+                  { icon:FileText, color:C.orange, text:`RUC ${envio.ruc} verificado`                },
+                ].map(({icon:Icon,color,text})=>(
+                  <div key={text} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                    <Icon size={12} style={{ color, flexShrink:0 }} />
+                    <span style={{ fontSize:11, color:C.gray600 }}>{text}</span>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowConfirmation(false); router.push("/catalogo"); }}
-                className="flex-1 py-3.5 rounded-xl font-black text-sm text-white transition-all"
-                style={{ background: C.purple, boxShadow: `0 4px 16px ${C.purple}40` }}
-                onMouseEnter={e => (e.currentTarget.style.background = C.purpleDark)}
-                onMouseLeave={e => (e.currentTarget.style.background = C.purple)}
-              >
+            <div style={{ display:"flex", gap:12 }}>
+              <button onClick={() => { setShowConfirmation(false); router.push("/catalogo"); }}
+                style={{ flex:1, padding:"13px", borderRadius:12, background:`linear-gradient(135deg,${C.purpleDark},${C.purple})`, color:C.white, border:"none", fontSize:13, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 16px ${C.purple}40` }}>
                 Seguir comprando
               </button>
-              <button
-                onClick={generateInvoice}
-                className="flex-1 py-3.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 border transition-all"
-                style={{ background: C.white, borderColor: C.gray200, color: C.gray700 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.purple; (e.currentTarget as HTMLElement).style.color = C.purple; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.gray200; (e.currentTarget as HTMLElement).style.color = C.gray700; }}
-              >
-                <Download size={16} />
-                Descargar Factura
+              <button onClick={() => alert(`✅ Factura\nPedido: #${orderDetails.id.substring(0,8).toUpperCase()}\nRUC: ${envio.ruc}\nRazón Social: ${envio.razonSocial}\nTotal: S/ ${fmt(orderDetails.total)}\n\nSe enviará a: ${envio.email}`)}
+                style={{ flex:1, padding:"13px", borderRadius:12, background:C.white, color:C.gray700, border:`1.5px solid ${C.gray200}`, fontSize:13, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <Download size={15} />Descargar Factura
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Header ──────────────────────────────────────────── */}
-      <header
-        className="sticky top-0 z-40 px-4"
-        style={{ background: C.white, borderBottom: `1px solid ${C.gray200}` }}
-      >
-        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-sm font-semibold transition-colors"
-            style={{ color: C.gray500 }}
-            onMouseEnter={e => (e.currentTarget.style.color = C.purple)}
-            onMouseLeave={e => (e.currentTarget.style.color = C.gray500)}
-          >
+      {/* ── Header ── */}
+      <header style={{ position:"sticky", top:0, zIndex:40, background:C.white, borderBottom:`1px solid ${C.gray200}`, padding:"0 16px" }}>
+        <div style={{ maxWidth:1280, margin:"0 auto", height:60, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <button onClick={() => router.back()}
+            style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:C.gray500, background:"none", border:"none", cursor:"pointer" }}
+            onMouseEnter={e => (e.currentTarget.style.color = C.purpleDark)}
+            onMouseLeave={e => (e.currentTarget.style.color = C.gray500)}>
             <ChevronLeft size={18} />
             <span className="hidden sm:inline">Continuar comprando</span>
           </button>
-
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: C.green }} />
-              <span className="text-xs font-bold" style={{ color: C.green }}>B2B Perú</span>
+          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}`, animation:"pulse 2s infinite" }} />
+              <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>B2B Perú</span>
             </div>
-            <h1 className="text-lg font-black" style={{ color: C.gray100 }}>
-              Checkout <span style={{ color: C.purple }}>B2B</span>
+            <h1 style={{ fontSize:16, fontWeight:900, color:C.gray900 }}>
+              Checkout <span style={{ color:C.purpleDark }}>B2B</span>
             </h1>
           </div>
-
-          <div className="flex items-center gap-3">
-            <ShoppingBag size={20} style={{ color: C.gray400 }} />
-            <span className="text-xs font-bold" style={{ color: C.gray600 }}>
-              {carrito.length} {carrito.length === 1 ? "producto" : "productos"}
-            </span>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <ShoppingBag size={18} style={{ color:C.gray400 }} />
+            <span style={{ fontSize:12, fontWeight:700, color:C.gray600 }}>{carrito.length} producto{carrito.length!==1?"s":""}</span>
           </div>
         </div>
       </header>
 
-      {/* ── Main ────────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* ── Main ── */}
+      <main style={{ maxWidth:1280, margin:"0 auto", padding:"28px 16px" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:24 }} className="lg:grid-cols-[1fr_420px]">
 
-          {/* ══ COLUMNA IZQUIERDA ══════════════════════════════ */}
-          <div className="lg:col-span-7 space-y-6">
+          {/* ══ COLUMNA IZQUIERDA ══ */}
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
 
-            {/* ── Datos facturación ─────────────────────────── */}
-            <section
-              className="rounded-2xl p-6 border"
-              style={{ background: C.white, borderColor: C.gray200 }}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${C.purple}12` }}
-                >
-                  <Building size={20} style={{ color: C.purple }} />
+            {/* ── Banner autocompletado ── */}
+            {!loadingUser && camposAutoCount > 0 && (
+              <div style={{ padding:"12px 16px", borderRadius:14, background:`${C.green}10`, border:`1.5px solid ${C.green}35`, display:"flex", alignItems:"center", justifyContent:"space-between", animation:"slideDown .35s ease" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{ width:34, height:34, borderRadius:10, background:`${C.greenDark}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <User size={16} style={{ color:C.greenDark }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize:13, fontWeight:800, color:C.greenDark, margin:0 }}>
+                      ✓ Datos completados automáticamente
+                    </p>
+                    <p style={{ fontSize:11, color:C.greenDark, margin:0, opacity:.8 }}>
+                      {camposAutoCount} campos llenados desde tu cuenta · Puedes editarlos
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900">Datos para Facturación</h3>
-                  <p className="text-xs" style={{ color: C.gray500 }}>RUC y Razón Social — Obligatorio</p>
+                <div style={{ fontSize:20, fontWeight:900, color:C.greenDark, background:C.white, borderRadius:10, padding:"4px 10px", border:`1px solid ${C.green}30` }}>
+                  {camposAutoCount}
                 </div>
-                <div
-                  className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold"
-                  style={{ background: `${C.orange}08`, borderColor: `${C.orange}25`, color: C.orange }}
-                >
-                  <Target size={12} /> SUNAT
+              </div>
+            )}
+
+            {loadingUser && (
+              <div style={{ padding:"12px 16px", borderRadius:14, background:C.gray100, border:`1px solid ${C.gray200}`, display:"flex", alignItems:"center", gap:10 }}>
+                <RefreshCw size={15} style={{ color:C.gray400, animation:"spin 1s linear infinite" }} />
+                <span style={{ fontSize:13, color:C.gray500, fontWeight:600 }}>Cargando tus datos...</span>
+              </div>
+            )}
+
+            {/* ── Datos facturación ── */}
+            <section style={{ borderRadius:18, padding:24, border:`1px solid ${C.gray200}`, background:C.white, boxShadow:`0 2px 12px rgba(0,0,0,0.04)` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+                <div style={{ width:40, height:40, borderRadius:12, background:`${C.purpleDark}12`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <Building size={19} style={{ color:C.purpleDark }} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <h3 style={{ fontSize:15, fontWeight:900, color:C.gray900, margin:0 }}>Datos para Facturación</h3>
+                  <p style={{ fontSize:12, color:C.gray500, margin:0 }}>RUC y Razón Social — Obligatorio SUNAT</p>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 11px", borderRadius:8, background:`${C.orange}08`, border:`1px solid ${C.orange}25` }}>
+                  <Target size={11} style={{ color:C.orange }} />
+                  <span style={{ fontSize:11, fontWeight:800, color:C.orange }}>SUNAT</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+                {/* RUC */}
                 <Field label="RUC" name="ruc" value={envio.ruc} onChange={handleInput}
-                  placeholder="20XXXXXXXXX" maxLength={11} required />
-                <div className="sm:col-span-2">
-                  <Field label="Razón Social" name="razonSocial" value={envio.razonSocial}
-                    onChange={handleInput} placeholder="EMPRESA SAC" required />
+                  placeholder="20XXXXXXXXX" maxLength={11} required
+                  autoFilled={autoFilledFields.has("ruc")} />
+
+                {/* Razón social — col span 2 */}
+                <div style={{ gridColumn:"1 / -1" }}>
+                  <Field label="Razón Social" name="razonSocial" value={envio.razonSocial} onChange={handleInput}
+                    placeholder="EMPRESA SAC" required autoFilled={autoFilledFields.has("razonSocial")} />
                 </div>
-                <Field label="Contacto" name="contacto" value={envio.contacto}
-                  onChange={handleInput} placeholder="Nombre del responsable" />
-                <Field label="Email Facturación" name="email" value={envio.email}
-                  onChange={handleInput} placeholder="facturacion@empresa.com" type="email" required />
-                <div className="sm:col-span-2">
-                  <Field label="Dirección de Entrega" name="direccion" value={envio.direccion}
-                    onChange={handleInput} placeholder="Av. Principal 123, Lima" />
+
+                <Field label="Contacto / Nombre" name="contacto" value={envio.contacto} onChange={handleInput}
+                  placeholder="Nombre del responsable" autoFilled={autoFilledFields.has("contacto")} />
+
+                <Field label="Email Facturación" name="email" value={envio.email} onChange={handleInput}
+                  placeholder="facturacion@empresa.com" type="email" required autoFilled={autoFilledFields.has("email")} />
+
+                {/* Dirección — col span 2 */}
+                <div style={{ gridColumn:"1 / -1" }}>
+                  <Field label="Dirección de Entrega" name="direccion" value={envio.direccion} onChange={handleInput}
+                    placeholder="Av. Principal 123, Lima" autoFilled={autoFilledFields.has("direccion")} />
                 </div>
-                <Field label="Teléfono" name="telefono" value={envio.telefono}
-                  onChange={handleInput} placeholder="+51 999 888 777" />
-                <Field label="Referencia" name="referencia" value={envio.referencia}
-                  onChange={handleInput} placeholder="Piso, oficina, interior" />
+
+                <Field label="Teléfono" name="telefono" value={envio.telefono} onChange={handleInput}
+                  placeholder="+51 999 888 777" autoFilled={autoFilledFields.has("telefono")} />
+
+                <Field label="Ciudad / Departamento" name="ciudad" value={envio.ciudad} onChange={handleInput}
+                  placeholder="Lima" autoFilled={autoFilledFields.has("ciudad")} />
+
+                <div style={{ gridColumn:"1 / -1" }}>
+                  <Field label="Referencia" name="referencia" value={envio.referencia} onChange={handleInput}
+                    placeholder="Piso, oficina, interior (opcional)" />
+                </div>
               </div>
             </section>
 
-            {/* ── Método de pago ────────────────────────────── */}
-            <section
-              className="rounded-2xl p-6 border"
-              style={{ background: C.white, borderColor: C.gray200 }}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${C.green}12` }}
-                >
-                  <CreditCard size={20} style={{ color: C.green }} />
+            {/* ── Método de pago ── */}
+            <section style={{ borderRadius:18, padding:24, border:`1px solid ${C.gray200}`, background:C.white, boxShadow:`0 2px 12px rgba(0,0,0,0.04)` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+                <div style={{ width:40, height:40, borderRadius:12, background:`${C.greenDark}12`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <CreditCard size={19} style={{ color:C.greenDark }} />
                 </div>
-                <div>
-                  <h3 className="text-base font-black text-gray-900">Método de Pago</h3>
-                  <p className="text-xs" style={{ color: C.gray500 }}>Selecciona tu forma de pago</p>
+                <div style={{ flex:1 }}>
+                  <h3 style={{ fontSize:15, fontWeight:900, color:C.gray900, margin:0 }}>Método de Pago</h3>
+                  <p style={{ fontSize:12, color:C.gray500, margin:0 }}>Selecciona tu forma de pago</p>
                 </div>
-                <ShieldCheck size={18} style={{ color: C.green, marginLeft: "auto" }} />
+                <ShieldCheck size={17} style={{ color:C.greenDark }} />
               </div>
 
-              {/* Selector */}
-              <div className="grid grid-cols-2 gap-3 mb-5">
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:18 }}>
                 {([
-                  { id: "transferencia", icon: Landmark, label: "Transferencia", sub: "BCP/BBVA/Interbank", color: C.green },
-                  { id: "tarjeta",       icon: CreditCard, label: "Tarjeta",  sub: "Visa/Mastercard",  color: C.purple },
-                ] as const).map(({ id, icon: Icon, label, sub, color }) => (
-                  <button
-                    key={id}
-                    onClick={() => setMetodoPago(id)}
-                    className="p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all"
-                    style={{
-                      borderColor: metodoPago === id ? color : C.gray200,
-                      background:  metodoPago === id ? `${color}0d` : C.white,
-                    }}
-                  >
-                    <Icon size={22} style={{ color: metodoPago === id ? color : C.gray400 }} />
-                    <span className="text-xs font-black" style={{ color: metodoPago === id ? color : C.gray600 }}>{label}</span>
-                    <span className="text-[10px]" style={{ color: C.gray400 }}>{sub}</span>
+                  { id:"transferencia", icon:Landmark,   label:"Transferencia", sub:"BCP/BBVA/Interbank", color:C.greenDark },
+                  { id:"tarjeta",       icon:CreditCard,  label:"Tarjeta",       sub:"Visa/Mastercard",    color:C.purpleDark },
+                ] as const).map(({ id, icon:Icon, label, sub, color }) => (
+                  <button key={id} onClick={() => setMetodoPago(id)}
+                    style={{ padding:"14px 12px", borderRadius:14, border:`2px solid ${metodoPago===id ? color : C.gray200}`, background:metodoPago===id ? `${color}0e` : C.white, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:8, transition:"all .2s" }}>
+                    <Icon size={22} style={{ color:metodoPago===id ? color : C.gray400 }} />
+                    <span style={{ fontSize:13, fontWeight:800, color:metodoPago===id ? color : C.gray600 }}>{label}</span>
+                    <span style={{ fontSize:10, color:C.gray400 }}>{sub}</span>
                   </button>
                 ))}
               </div>
 
-              {/* Transferencia info */}
               {metodoPago === "transferencia" && (
-                <div
-                  className="rounded-xl p-4 border space-y-2"
-                  style={{ background: C.gray100, borderColor: C.gray200 }}
-                >
-                  <h4 className="text-sm font-black text-gray-800 mb-3">Datos para Transferencia — BCP</h4>
-                  {[
-                    ["Banco",             "BCP"],
-                    ["Cuenta Corriente",  "191-23456789-0-99"],
-                    ["CCI",               "00219100234567899099"],
-                    ["Titular",           "TIENDAS WALY SAC"],
-                    ["RUC",               "20605467891"],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between items-center p-2.5 rounded-lg" style={{ background: C.white }}>
-                      <span className="text-xs" style={{ color: C.gray500 }}>{k}:</span>
-                      <span className="text-xs font-bold font-mono text-gray-800">{v}</span>
+                <div style={{ borderRadius:12, padding:16, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                  <h4 style={{ fontSize:13, fontWeight:900, color:C.gray800, margin:"0 0 12px" }}>Datos para Transferencia — BCP</h4>
+                  {[["Banco","BCP"],["Cuenta Corriente","191-23456789-0-99"],["CCI","00219100234567899099"],["Titular","TIENDAS WALY SAC"],["RUC","20605467891"]].map(([k,v])=>(
+                    <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, background:C.white, marginBottom:6 }}>
+                      <span style={{ fontSize:12, color:C.gray500 }}>{k}:</span>
+                      <span style={{ fontSize:12, fontWeight:700, fontFamily:"monospace", color:C.gray900 }}>{v}</span>
                     </div>
                   ))}
-                  <div
-                    className="mt-3 p-3 rounded-lg border text-xs"
-                    style={{ background: `${C.purple}08`, borderColor: `${C.purple}20`, color: C.purple }}
-                  >
-                    <strong>Importante:</strong> Envía el comprobante a facturacion@tiendaswaly.com con tu RUC y número de pedido.
+                  <div style={{ marginTop:10, padding:"10px 12px", borderRadius:10, background:`${C.purpleDark}08`, border:`1px solid ${C.purpleDark}20` }}>
+                    <p style={{ fontSize:12, color:C.purpleDark, margin:0, fontWeight:600 }}>
+                      <strong>Importante:</strong> Envía el comprobante a facturacion@tiendaswaly.com con tu RUC y número de pedido.
+                    </p>
                   </div>
                 </div>
               )}
 
-              {/* Tarjeta */}
               {metodoPago === "tarjeta" && (
-                <div
-                  className="rounded-xl p-4 border"
-                  style={{ background: C.gray100, borderColor: C.gray200 }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-sm font-black text-gray-800">Detalles de Tarjeta</h4>
-                    <button
-                      onClick={() => setShowCardDetails(!showCardDetails)}
-                      className="flex items-center gap-1 text-xs font-semibold transition-colors"
-                      style={{ color: C.purple }}
-                    >
-                      {showCardDetails ? <EyeOff size={13} /> : <Eye size={13} />}
+                <div style={{ borderRadius:12, padding:16, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                    <h4 style={{ fontSize:13, fontWeight:900, color:C.gray800, margin:0 }}>Detalles de Tarjeta</h4>
+                    <button onClick={() => setShowCardDetails(!showCardDetails)}
+                      style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, fontWeight:700, color:C.purpleDark, background:"none", border:"none", cursor:"pointer" }}>
+                      {showCardDetails ? <EyeOff size={13}/> : <Eye size={13}/>}
                       {showCardDetails ? "Ocultar" : "Mostrar"}
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <Field label="Número de Tarjeta" name="cardNumber"
-                        value={paymentDetails.cardNumber} onChange={handleCardInput}
-                        placeholder="1234 5678 9012 3456"
-                        type={showCardDetails ? "text" : "password"} maxLength={19} />
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                    <div style={{ gridColumn:"1 / -1" }}>
+                      <Field label="Número de Tarjeta" name="cardNumber" value={paymentDetails.cardNumber} onChange={handleCardInput}
+                        placeholder="1234 5678 9012 3456" type={showCardDetails?"text":"password"} maxLength={19} />
                     </div>
-                    <Field label="Válida hasta" name="expiry"
-                      value={paymentDetails.expiry} onChange={handleCardInput}
+                    <Field label="Válida hasta" name="expiry" value={paymentDetails.expiry} onChange={handleCardInput}
                       placeholder="MM/AA" maxLength={5} />
-                    <Field label="CVV" name="cvv"
-                      value={paymentDetails.cvv} onChange={handleCardInput}
-                      placeholder="123" type={showCardDetails ? "text" : "password"} maxLength={3} />
-                    <div className="col-span-2">
-                      <Field label="Nombre del Titular" name="cardholder"
-                        value={paymentDetails.cardholder} onChange={handleCardInput}
+                    <Field label="CVV" name="cvv" value={paymentDetails.cvv} onChange={handleCardInput}
+                      placeholder="123" type={showCardDetails?"text":"password"} maxLength={3} />
+                    <div style={{ gridColumn:"1 / -1" }}>
+                      <Field label="Nombre del Titular" name="cardholder" value={paymentDetails.cardholder} onChange={handleCardInput}
                         placeholder="Como aparece en la tarjeta" />
                     </div>
                   </div>
@@ -620,336 +599,223 @@ export default function CarritoPage() {
               )}
             </section>
 
-            {/* ── Productos ─────────────────────────────────── */}
-            <section
-              className="rounded-2xl p-6 border"
-              style={{ background: C.white, borderColor: C.gray200 }}
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${C.orange}12` }}
-                >
-                  <PackageCheck size={20} style={{ color: C.orange }} />
+            {/* ── Productos del carrito ── */}
+            <section style={{ borderRadius:18, padding:24, border:`1px solid ${C.gray200}`, background:C.white, boxShadow:`0 2px 12px rgba(0,0,0,0.04)` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+                <div style={{ width:40, height:40, borderRadius:12, background:`${C.orange}12`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <PackageCheck size={19} style={{ color:C.orange }} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Resumen de Productos</h3>
-                  <p className="text-xs" style={{ color: C.gray500 }}>
-                    {carrito.length} {carrito.length === 1 ? "producto" : "productos"} en tu orden
-                  </p>
+                  <h3 style={{ fontSize:15, fontWeight:900, color:C.gray900, margin:0 }}>Resumen de Productos</h3>
+                  <p style={{ fontSize:12, color:C.gray500, margin:0 }}>{carrito.length} producto{carrito.length!==1?"s":""} en tu orden</p>
                 </div>
               </div>
 
               {carrito.length === 0 ? (
-                <div className="text-center py-14">
-                  <div
-                    className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4"
-                    style={{ background: C.gray100 }}
-                  >
-                    <ShoppingBag size={32} style={{ color: C.gray300 }} />
+                <div style={{ textAlign:"center", padding:"48px 0" }}>
+                  <div style={{ width:72, height:72, borderRadius:"50%", background:C.gray100, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 14px" }}>
+                    <ShoppingBag size={30} style={{ color:C.gray300 }} />
                   </div>
-                  <h4 className="text-lg font-black text-gray-800 mb-2">Carrito vacío</h4>
-                  <p className="text-sm mb-6" style={{ color: C.gray500 }}>
-                    Agrega productos desde nuestro catálogo B2B
-                  </p>
-                  <button
-                    onClick={() => router.push("/catalogo")}
-                    className="inline-flex items-center gap-2 px-6 py-3 text-white font-black text-sm rounded-xl transition-all"
-                    style={{ background: C.purple, boxShadow: `0 4px 16px ${C.purple}40` }}
-                  >
-                    <Building size={16} />
-                    Explorar Catálogo
+                  <h4 style={{ fontSize:16, fontWeight:900, color:C.gray800, margin:"0 0 6px" }}>Carrito vacío</h4>
+                  <p style={{ fontSize:13, color:C.gray500, margin:"0 0 20px" }}>Agrega productos desde nuestro catálogo B2B</p>
+                  <button onClick={() => router.push("/catalogo")}
+                    style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"11px 22px", borderRadius:12, background:`linear-gradient(135deg,${C.purpleDark},${C.purple})`, color:C.white, border:"none", fontSize:13, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 16px ${C.purpleDark}40` }}>
+                    <Building size={15} />Explorar Catálogo
                   </button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {carrito.map(item => (
-                    <div
-                      key={item.id}
-                      className="flex gap-3 p-4 rounded-xl border transition-all"
-                      style={{ background: C.gray100, borderColor: C.gray200 }}
-                    >
-                      {/* Imagen */}
-                      <div
-                        className="w-18 h-18 rounded-xl shrink-0 flex items-center justify-center p-2 relative"
-                        style={{ background: C.white, border: `1px solid ${C.gray200}`, width: "72px", height: "72px" }}
-                      >
-                        <img
-                          src={item.imagenUrl || item.imagen_principal || "/placeholder-image.jpg"}
-                          alt={item.nombre}
-                          className="w-full h-full object-contain"
-                          onError={e => { (e.target as HTMLImageElement).src = "/placeholder-image.jpg"; }}
-                        />
-                        <div
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-white"
-                          style={{ background: C.purple }}
-                        >
-                          {item.cantidad}
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {carrito.map(item => {
+                    const esCaja   = item.tipoCompra === "caja";
+                    const udsCaja  = item.unidadesPorCaja || 10;
+                    const totalUds = esCaja ? item.cantidad * udsCaja : item.cantidad;
+                    return (
+                      <div key={item.id} style={{ display:"flex", gap:12, padding:"14px 16px", borderRadius:14, background:C.gray50, border:`1px solid ${C.gray200}` }}>
+                        {/* Imagen */}
+                        <div style={{ width:68, height:68, borderRadius:12, background:C.white, border:`1px solid ${C.gray200}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, position:"relative", padding:6 }}>
+                          <img src={item.imagenUrl||item.imagen_principal||"/placeholder-image.jpg"} alt={item.nombre}
+                            style={{ width:"100%", height:"100%", objectFit:"contain" }}
+                            onError={e => { (e.target as HTMLImageElement).src="/placeholder-image.jpg"; }} />
+                          <div style={{ position:"absolute", top:-6, right:-6, width:20, height:20, borderRadius:"50%", background:C.purpleDark, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                            <span style={{ fontSize:9, fontWeight:900, color:C.white }}>{item.cantidad}</span>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-1">
-                          <div>
-                            <h4 className="text-sm font-black text-gray-900 leading-tight line-clamp-1">
-                              {item.nombre || "Producto"}
-                            </h4>
-                            <p className="text-[10px] font-mono mt-0.5" style={{ color: C.gray500 }}>
-                              SKU: {item.sku || item.id?.substring(0, 8).toUpperCase()}
-                            </p>
-                            {item.tipoCompra && (
-                              <span
-                                className="inline-block mt-1 text-[9px] font-black uppercase px-1.5 py-0.5 rounded"
-                                style={{
-                                  background: item.tipoCompra === "caja" ? `${C.orange}15` : `${C.purple}15`,
-                                  color: item.tipoCompra === "caja" ? C.orange : C.purple,
-                                }}
-                              >
-                                Por {item.tipoCompra}
+                        {/* Info */}
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:4 }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <h4 style={{ fontSize:13, fontWeight:800, color:C.gray900, margin:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{item.nombre||"Producto"}</h4>
+                              <p style={{ fontSize:10, fontFamily:"monospace", color:C.gray400, margin:"2px 0 0" }}>SKU: {item.sku||item.id?.slice(0,8).toUpperCase()}</p>
+                            </div>
+                            <button onClick={() => eliminarDelCarrito(item.id)}
+                              style={{ padding:6, borderRadius:8, background:"transparent", border:"none", cursor:"pointer", color:C.gray400, flexShrink:0, marginLeft:6 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color="#ef4444"; (e.currentTarget as HTMLElement).style.background="rgba(239,68,68,0.08)"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color=C.gray400; (e.currentTarget as HTMLElement).style.background="transparent"; }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+
+                          {/* Tipo + desglose */}
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:9, fontWeight:800, padding:"2px 7px", borderRadius:6, background:esCaja?`${C.orange}15`:`${C.purpleDark}15`, color:esCaja?C.orange:C.purpleDark, display:"inline-flex", alignItems:"center", gap:4 }}>
+                              {esCaja ? <Package size={9}/> : <Box size={9}/>}
+                              Por {esCaja?"caja":"unidad"}
+                            </span>
+                            {esCaja && (
+                              <span style={{ fontSize:10, fontWeight:600, color:C.gray600 }}>
+                                {item.cantidad} caja{item.cantidad!==1?"s":""} × {udsCaja} uds = <strong style={{ color:C.purpleDark }}>{totalUds} uds</strong>
                               </span>
                             )}
                           </div>
-                          <button
-                            onClick={() => eliminarDelCarrito(item.id)}
-                            className="p-1.5 rounded-lg transition-colors shrink-0"
-                            style={{ color: C.gray400 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#ef4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray400; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
 
-                        <div className="flex items-center justify-between mt-2">
-                          {/* Controles cantidad */}
-                          <div
-                            className="flex items-center rounded-lg overflow-hidden border"
-                            style={{ borderColor: C.gray300 }}
-                          >
-                            <button
-                              onClick={() => {
-                                const nueva = (item.cantidad || 1) - 1;
-                                if (nueva <= 0) eliminarDelCarrito(item.id);
-                                else actualizarCantidad(item.id, nueva);
-                              }}
-                              className="w-8 h-8 flex items-center justify-center transition-colors"
-                              style={{ background: C.white, color: C.gray500 }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}10`; (e.currentTarget as HTMLElement).style.color = C.purple; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
-                            >
-                              <Minus size={13} />
-                            </button>
-                            <span
-                              className="w-10 text-center text-sm font-black text-gray-900"
-                              style={{ background: C.gray100 }}
-                            >
-                              {item.cantidad}
-                            </span>
-                            <button
-                              onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) + 1)}
-                              className="w-8 h-8 flex items-center justify-center transition-colors"
-                              style={{ background: C.white, color: C.gray500 }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${C.purple}10`; (e.currentTarget as HTMLElement).style.color = C.purple; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = C.white; (e.currentTarget as HTMLElement).style.color = C.gray500; }}
-                            >
-                              <Plus size={13} />
-                            </button>
-                          </div>
-
-                          {/* Precio */}
-                          <div className="text-right">
-                            <p className="text-base font-black" style={{ color: C.orange }}>
-                              S/ {fmt((item.precioBase || 0) * item.cantidad)}
-                            </p>
-                            <p className="text-[10px]" style={{ color: C.gray500 }}>
-                              S/ {fmt(item.precioBase || 0)} c/u
-                            </p>
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                            {/* Controles */}
+                            <div style={{ display:"flex", alignItems:"center", borderRadius:9, overflow:"hidden", border:`1px solid ${C.gray200}` }}>
+                              <button onClick={() => { const n=(item.cantidad||1)-1; if(n<=0) eliminarDelCarrito(item.id); else actualizarCantidad(item.id,n); }}
+                                style={{ width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", background:C.white, border:"none", cursor:"pointer", color:C.gray500 }}
+                                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${C.purpleDark}10`;(e.currentTarget as HTMLElement).style.color=C.purpleDark;}}
+                                onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=C.white;(e.currentTarget as HTMLElement).style.color=C.gray500;}}>
+                                <Minus size={12} />
+                              </button>
+                              <span style={{ width:36, textAlign:"center", fontSize:13, fontWeight:900, color:C.gray900, background:C.gray100 }}>{item.cantidad}</span>
+                              <button onClick={() => actualizarCantidad(item.id,(item.cantidad||1)+1)}
+                                style={{ width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", background:C.white, border:"none", cursor:"pointer", color:C.gray500 }}
+                                onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.background=`${C.purpleDark}10`;(e.currentTarget as HTMLElement).style.color=C.purpleDark;}}
+                                onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=C.white;(e.currentTarget as HTMLElement).style.color=C.gray500;}}>
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                            {/* Precio */}
+                            <div style={{ textAlign:"right" }}>
+                              <p style={{ fontSize:15, fontWeight:900, color:C.orange, margin:0 }}>S/ {fmt((item.precioBase||0)*item.cantidad)}</p>
+                              <p style={{ fontSize:10, color:C.gray400, margin:0 }}>S/ {fmt(item.precioBase||0)} c/{esCaja?"caja":"ud"}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
           </div>
 
-          {/* ══ COLUMNA DERECHA ════════════════════════════════ */}
-          <div className="lg:col-span-5">
-            <div className="sticky top-24 space-y-5">
+          {/* ══ COLUMNA DERECHA ══ */}
+          <div style={{ position:"sticky", top:80, alignSelf:"start", display:"flex", flexDirection:"column", gap:16 }}>
 
-              {/* ── Resumen de compra ─────────────────────────── */}
-              <div
-                className="rounded-2xl p-6 border"
-                style={{ background: C.white, borderColor: C.gray200 }}
-              >
-                <div className="flex items-center gap-2 mb-5">
-                  <Calculator size={18} style={{ color: C.purple }} />
-                  <h3 className="text-base font-black text-gray-900">Resumen — IGV 18%</h3>
-                </div>
-
-                <div className="space-y-3 mb-5">
-                  {[
-                    { label: "Subtotal", sub: "Productos", val: `S/ ${fmt(subtotal)}`, highlight: false },
-                    ...(descuento > 0 ? [{
-                      label: `Descuento ${(descuento * 100).toFixed(0)}%`, sub: "Por volumen",
-                      val: `-S/ ${fmt(descuentoMonto)}`, highlight: true, color: C.green
-                    }] : []),
-                    { label: "Base Imponible", sub: "Antes de IGV", val: `S/ ${fmt(baseImponible)}`, highlight: false },
-                    { label: "IGV (18%)", sub: "Impuesto General", val: `S/ ${fmt(igv)}`, highlight: false, color: C.orange },
-                    { label: "Envío", sub: "Express 24-48h", val: envioCosto === 0 ? "GRATIS" : `S/ ${fmt(envioCosto)}`, highlight: envioCosto === 0, color: envioCosto === 0 ? C.green : undefined },
-                  ].map(({ label, sub, val, highlight, color }, i) => (
-                    <div
-                      key={i}
-                      className="flex justify-between items-center py-2.5"
-                      style={{ borderBottom: `1px solid ${C.gray100}` }}
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-gray-700" style={highlight && color ? { color } : undefined}>{label}</p>
-                        <p className="text-[10px]" style={{ color: C.gray400 }}>{sub}</p>
-                      </div>
-                      <span
-                        className="text-sm font-black"
-                        style={{ color: color || C.gray800 }}
-                      >
-                        {val}
-                      </span>
-                    </div>
-                  ))}
-
-                  {/* Total */}
-                  <div
-                    className="flex justify-between items-center py-4 px-4 rounded-xl border mt-2"
-                    style={{ background: `${C.purple}08`, borderColor: `${C.purple}25` }}
-                  >
+            {/* Resumen IGV */}
+            <div style={{ borderRadius:18, padding:22, border:`1px solid ${C.gray200}`, background:C.white, boxShadow:`0 2px 12px rgba(0,0,0,0.04)` }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:18 }}>
+                <Calculator size={17} style={{ color:C.purpleDark }} />
+                <h3 style={{ fontSize:14, fontWeight:900, color:C.gray900, margin:0 }}>Resumen — IGV 18%</h3>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+                {[
+                  { label:"Subtotal",      sub:"Productos",     val:`S/ ${fmt(subtotal)}`,          color:C.gray800   },
+                  ...(descuento>0 ? [{ label:`Descuento ${(descuento*100).toFixed(0)}%`, sub:"Por volumen", val:`-S/ ${fmt(descuentoMonto)}`, color:C.greenDark }] : []),
+                  { label:"Base Imponible", sub:"Antes de IGV",  val:`S/ ${fmt(baseImponible)}`,     color:C.gray800   },
+                  { label:"IGV (18%)",      sub:"Impuesto",      val:`S/ ${fmt(igv)}`,               color:C.orange    },
+                  { label:"Envío",          sub:"Express 24-48h",val:envioCosto===0?"GRATIS":`S/ ${fmt(envioCosto)}`, color:envioCosto===0?C.greenDark:C.gray800 },
+                ].map(({ label, sub, val, color }, i) => (
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:`1px solid ${C.gray100}` }}>
                     <div>
-                      <p className="text-base font-black text-gray-900">Total a Pagar</p>
-                      <p className="text-[10px]" style={{ color: C.gray500 }}>Incluye IGV • Factura Electrónica</p>
+                      <p style={{ fontSize:13, fontWeight:600, color:C.gray700, margin:0 }}>{label}</p>
+                      <p style={{ fontSize:10, color:C.gray400, margin:0 }}>{sub}</p>
                     </div>
-                    <p className="text-3xl font-black" style={{ color: C.purple }}>
-                      S/ {fmt(totalFinal)}
-                    </p>
+                    <span style={{ fontSize:13, fontWeight:800, color }}>{val}</span>
                   </div>
-                </div>
+                ))}
 
-                {/* Botón confirmar */}
-                <button
-                  onClick={handleFinalizarPedido}
-                  disabled={loading || carrito.length === 0 || !envio.ruc || envio.ruc.length !== 11}
-                  className="w-full py-4 rounded-xl font-black text-sm text-white flex items-center justify-center gap-2 mb-3 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{
-                    background: loading || carrito.length === 0 || !envio.ruc || envio.ruc.length !== 11
-                      ? C.gray300
-                      : C.purple,
-                    boxShadow: loading || carrito.length === 0 ? "none" : `0 4px 20px ${C.purple}40`,
-                  }}
-                  onMouseEnter={e => { if (!loading && carrito.length > 0 && envio.ruc?.length === 11) (e.currentTarget as HTMLElement).style.background = C.purpleDark; }}
-                  onMouseLeave={e => { if (!loading && carrito.length > 0 && envio.ruc?.length === 11) (e.currentTarget as HTMLElement).style.background = C.purple; }}
-                >
-                  {loading ? (
-                    <><Loader2 className="animate-spin" size={18} />Procesando Orden...</>
-                  ) : carrito.length === 0 ? (
-                    "Agrega productos primero"
-                  ) : !envio.ruc || envio.ruc.length !== 11 ? (
-                    "Ingresa RUC válido (11 dígitos)"
-                  ) : (
-                    <><Lock size={16} />Confirmar Orden B2B<ArrowRight size={16} /></>
-                  )}
+                {/* Total */}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 16px", borderRadius:12, background:`${C.purpleDark}08`, border:`1.5px solid ${C.purpleDark}25`, marginTop:12 }}>
+                  <div>
+                    <p style={{ fontSize:14, fontWeight:900, color:C.gray900, margin:0 }}>Total a Pagar</p>
+                    <p style={{ fontSize:10, color:C.gray500, margin:0 }}>Incluye IGV · Factura Electrónica</p>
+                  </div>
+                  <p style={{ fontSize:26, fontWeight:900, color:C.purpleDark, margin:0 }}>S/ {fmt(totalFinal)}</p>
+                </div>
+              </div>
+
+              {/* Botón confirmar */}
+              <button onClick={handleFinalizarPedido}
+                disabled={loading || carrito.length===0 || !envio.ruc || envio.ruc.length!==11}
+                style={{ width:"100%", marginTop:16, padding:"14px", borderRadius:13, background:loading||carrito.length===0||!envio.ruc||envio.ruc.length!==11 ? C.gray300 : `linear-gradient(135deg,${C.purpleDark},${C.purple})`, color:C.white, border:"none", fontSize:13, fontWeight:900, cursor:loading||carrito.length===0||!envio.ruc||envio.ruc.length!==11?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, boxShadow:loading||carrito.length===0?"none":`0 4px 20px ${C.purpleDark}40`, transition:"all .2s" }}
+                onMouseEnter={e => { if(!loading && carrito.length>0 && envio.ruc?.length===11) (e.currentTarget as HTMLElement).style.transform="translateY(-1px)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform="none"; }}>
+                {loading
+                  ? <><Loader2 size={17} style={{ animation:"spin .75s linear infinite" }} />Procesando Orden...</>
+                  : carrito.length===0 ? "Agrega productos primero"
+                  : !envio.ruc||envio.ruc.length!==11 ? "Ingresa RUC válido (11 dígitos)"
+                  : <><Lock size={15} />Confirmar Orden B2B<ArrowRight size={15}/></>}
+              </button>
+
+              {carrito.length>0 && (
+                <button onClick={vaciarCarrito}
+                  style={{ width:"100%", marginTop:8, padding:"10px", borderRadius:11, background:"transparent", border:"none", fontSize:12, fontWeight:600, color:C.gray400, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}
+                  onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.color="#ef4444";(e.currentTarget as HTMLElement).style.background="rgba(239,68,68,0.05)";}}
+                  onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.color=C.gray400;(e.currentTarget as HTMLElement).style.background="transparent";}}>
+                  <Trash2 size={13} />Vaciar carrito
                 </button>
-
-                {carrito.length > 0 && (
-                  <button
-                    onClick={vaciarCarrito}
-                    className="w-full py-2.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors"
-                    style={{ color: C.gray500 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#ef4444"; (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.05)"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = C.gray500; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                  >
-                    <Trash2 size={15} />
-                    Vaciar carrito
-                  </button>
-                )}
-              </div>
-
-              {/* ── Beneficios B2B ─────────────────────────────── */}
-              <div
-                className="rounded-2xl p-5 border"
-                style={{ background: C.white, borderColor: C.gray200 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Award size={16} style={{ color: C.yellow }} />
-                  <h3 className="text-sm font-black text-gray-900">Ventajas B2B</h3>
-                </div>
-                <div className="space-y-3">
-                  {[
-                    { icon: FileText, color: C.purple, title: "Factura Electrónica", sub: "Validada por SUNAT" },
-                    { icon: Percent,  color: C.green,  title: "Descuentos por Volumen", sub: "Hasta 20% en compras mayoristas" },
-                    { icon: Truck,    color: C.orange, title: "Envío a todo Perú", sub: "Olva / Shalom / OTR Express" },
-                    { icon: ShieldCheck, color: C.purple, title: "Garantía de fábrica", sub: "Todos los productos sellados" },
-                  ].map(({ icon: Icon, color, title, sub }) => (
-                    <div
-                      key={title}
-                      className="flex items-center gap-3 p-3 rounded-xl border"
-                      style={{ background: C.gray100, borderColor: C.gray200 }}
-                    >
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `${color}15` }}
-                      >
-                        <Icon size={16} style={{ color }} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-gray-800">{title}</p>
-                        <p className="text-[10px]" style={{ color: C.gray500 }}>{sub}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Descuentos por volumen ─────────────────────── */}
-              {descuento === 0 && totalItems < 10 && (
-                <div
-                  className="rounded-2xl p-4 border text-center"
-                  style={{ background: `${C.yellow}08`, borderColor: `${C.yellow}30` }}
-                >
-                  <Zap size={20} style={{ color: C.orange, margin: "0 auto 8px" }} />
-                  <p className="text-xs font-black text-gray-800 mb-1">¡Consigue descuentos!</p>
-                  <p className="text-[10px]" style={{ color: C.gray500 }}>
-                    Compra 10+ unidades y obtén 5% OFF. Más de 100 uds = 20% OFF
-                  </p>
-                </div>
               )}
             </div>
+
+            {/* Beneficios B2B */}
+            <div style={{ borderRadius:18, padding:18, border:`1px solid ${C.gray200}`, background:C.white }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+                <Award size={15} style={{ color:C.yellow }} />
+                <h3 style={{ fontSize:13, fontWeight:900, color:C.gray900, margin:0 }}>Ventajas B2B</h3>
+              </div>
+              {[
+                { icon:FileText,    color:C.purpleDark, title:"Factura Electrónica",     sub:"Validada por SUNAT"                },
+                { icon:Percent,     color:C.greenDark,  title:"Descuentos por Volumen",  sub:"Hasta 20% en compras mayoristas"   },
+                { icon:Truck,       color:C.orange,     title:"Envío a todo Perú",       sub:"Olva / Shalom / OTR Express"       },
+                { icon:ShieldCheck, color:C.purpleDark, title:"Garantía de fábrica",     sub:"Todos los productos sellados"      },
+              ].map(({ icon:Icon, color, title, sub }) => (
+                <div key={title} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 10px", borderRadius:10, background:C.gray50, border:`1px solid ${C.gray200}`, marginBottom:8 }}>
+                  <div style={{ width:32, height:32, borderRadius:9, background:`${color}12`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                    <Icon size={15} style={{ color }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize:12, fontWeight:800, color:C.gray900, margin:0 }}>{title}</p>
+                    <p style={{ fontSize:10, color:C.gray500, margin:0 }}>{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tip descuento */}
+            {descuento===0 && totalItems<10 && (
+              <div style={{ borderRadius:14, padding:14, background:`${C.yellow}08`, border:`1px solid ${C.yellow}30`, textAlign:"center" }}>
+                <Zap size={18} style={{ color:C.orange, margin:"0 auto 6px", display:"block" }} />
+                <p style={{ fontSize:12, fontWeight:900, color:C.gray800, margin:"0 0 4px" }}>¡Consigue descuentos!</p>
+                <p style={{ fontSize:10, color:C.gray500, margin:0 }}>
+                  Compra 10+ unidades → 5% OFF. 100+ uds → 20% OFF
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────── */}
-      <footer
-        className="mt-12 py-8"
-        style={{ borderTop: `1px solid ${C.gray200}` }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+      {/* ── Footer ── */}
+      <footer style={{ marginTop:48, padding:"28px 16px", borderTop:`1px solid ${C.gray200}` }}>
+        <div style={{ maxWidth:1280, margin:"0 auto" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:24, marginBottom:20 }}>
             {[
-              { title: "Tiendas Waly",    content: <p className="text-xs" style={{ color: C.gray500 }}>Plataforma B2B especializada en comercio mayorista peruano.</p> },
-              { title: "Soporte",         content: <div className="space-y-1"><p className="text-xs flex items-center gap-1.5" style={{ color: C.gray500 }}><Phone size={11} />+51 1 640-9000</p><p className="text-xs flex items-center gap-1.5" style={{ color: C.gray500 }}><Mail size={11} />ventas@tiendaswaly.com</p></div> },
-              { title: "Bancos aceptados", content: <div className="flex flex-wrap gap-1.5">{["BCP","BBVA","Interbank"].map(b => <span key={b} className="px-2 py-1 rounded-lg text-xs font-bold" style={{ background: `${C.purple}10`, color: C.purple }}>{b}</span>)}</div> },
-              { title: "RUC",             content: <><p className="text-xs font-mono font-bold text-gray-700">20605467891</p><p className="text-[10px] mt-0.5" style={{ color: C.gray500 }}>TIENDAS WALY SAC</p></> },
-            ].map(({ title, content }) => (
+              { title:"Tiendas Waly",     body:<p style={{ fontSize:12, color:C.gray500, margin:0 }}>Plataforma B2B mayorista peruano.</p> },
+              { title:"Soporte",          body:<><p style={{ fontSize:12, color:C.gray500, margin:"0 0 4px", display:"flex", alignItems:"center", gap:5 }}><Phone size={10}/>+51 1 640-9000</p><p style={{ fontSize:12, color:C.gray500, margin:0, display:"flex", alignItems:"center", gap:5 }}><Mail size={10}/>ventas@tiendaswaly.com</p></> },
+              { title:"Bancos aceptados", body:<div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{["BCP","BBVA","Interbank"].map(b=><span key={b} style={{ padding:"3px 9px", borderRadius:8, fontSize:11, fontWeight:700, background:`${C.purpleDark}10`, color:C.purpleDark }}>{b}</span>)}</div> },
+              { title:"RUC",              body:<><p style={{ fontSize:12, fontFamily:"monospace", fontWeight:700, color:C.gray700, margin:0 }}>20605467891</p><p style={{ fontSize:10, color:C.gray500, margin:"3px 0 0" }}>TIENDAS WALY SAC</p></> },
+            ].map(({ title, body }) => (
               <div key={title}>
-                <h4 className="text-sm font-black text-gray-800 mb-3">{title}</h4>
-                {content}
+                <h4 style={{ fontSize:13, fontWeight:900, color:C.gray800, margin:"0 0 10px" }}>{title}</h4>
+                {body}
               </div>
             ))}
           </div>
-          <div
-            className="pt-6 text-center text-xs"
-            style={{ borderTop: `1px solid ${C.gray200}`, color: C.gray400 }}
-          >
-            © {new Date().getFullYear()} Tiendas Waly SAC • RUC: 20605467891 • Todos los precios en S/ PEN
+          <div style={{ paddingTop:16, textAlign:"center", fontSize:11, color:C.gray400, borderTop:`1px solid ${C.gray200}` }}>
+            © {new Date().getFullYear()} Tiendas Waly SAC · RUC: 20605467891 · Todos los precios en S/ PEN
           </div>
         </div>
       </footer>

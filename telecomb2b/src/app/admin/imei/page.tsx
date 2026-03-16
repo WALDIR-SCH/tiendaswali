@@ -348,18 +348,30 @@ function ModalAsignar({ grupo, onClose, onAsignar }: {
           (it.sku && it.sku === grupo.sku)
         ) || null;
 
-        // Detectar tipo de compra y calcular unidades correctamente
+        // Detectar tipo de compra
         const tipoCompra: "caja" | "unidad" | null = itemProducto
-          ? (itemProducto.tipoCompra || (itemProducto.id?.includes("-caja") ? "caja" : "unidad"))
+          ? (itemProducto.tipoCompra ||
+             (itemProducto.id?.includes("-caja") || itemProducto.unidad_venta?.toLowerCase?.().includes("caja") ? "caja" : "unidad"))
           : null;
 
-        const udsPorCaja    = Number(itemProducto?.unidadesPorCaja || itemProducto?.unidades_por_caja || grupo.imeis[0]?.garantiaMeses || 1);
+        // udsPorCaja: leer del item del pedido → fallback al grupo IMEI → fallback 10
+        // El grupo tiene los IMEIs reales, entonces podemos inferir uds/caja
+        // pero lo más confiable es el dato guardado en el item del pedido
+        const udsPorCajaItem =
+          Number(itemProducto?.unidadesPorCaja) ||
+          Number(itemProducto?.unidades_por_caja) ||
+          Number(itemProducto?.unidadesPorCaja) || 0;
+
+        // Si el item no tiene uds_por_caja guardado, buscamos en los imeis del grupo
+        // (los imeis no tienen ese dato tampoco) → usamos 10 como estándar mayorista
+        const udsPorCaja = udsPorCajaItem > 0 ? udsPorCajaItem : 10;
+
         const cantPedida    = Number(itemProducto?.cantidad) || 0;
         const cantidadCajas = tipoCompra === "caja" ? cantPedida : 0;
-        // Si compró por caja → IMEIs = cajas × uds_por_caja
+        // Si compró por caja → IMEIs = cajas × udsPorCaja
         // Si compró por unidad → IMEIs = cantidad directa
         const cantidadUnidades = tipoCompra === "caja"
-          ? cantPedida * (Number(itemProducto?.unidadesPorCaja || itemProducto?.unidades_por_caja) || 10)
+          ? cantPedida * udsPorCaja
           : cantPedida;
 
         return {
@@ -377,7 +389,7 @@ function ModalAsignar({ grupo, onClose, onAsignar }: {
           tipoCompra,
           cantidadCajas,
           cantidadUnidades,
-          unidadesPorCaja:  Number(itemProducto?.unidadesPorCaja || itemProducto?.unidades_por_caja) || 10,
+          unidadesPorCaja:  udsPorCaja,
           items,
         } as PedidoResumen;
       });
@@ -401,17 +413,24 @@ function ModalAsignar({ grupo, onClose, onAsignar }: {
     ).slice(0, 8);
   }, [pedidosDB, busquedaPedido]);
 
-  /* ── Seleccionar pedido → autocompleta cantidad ── */
+  /* ── Seleccionar pedido → autocompleta cantidad e IMEIs ── */
   const seleccionarPedido = (p: PedidoResumen) => {
     setPedidoSel(p);
     setBusquedaPedido(p.numero);
     setShowDropdown(false);
-    // Usar las unidades totales del pedido (respetando disponibles)
-    const cantAuto = Math.min(
-      Math.max(p.cantidadUnidades || p.cantidadCajas || 1, 1),
-      disponibles.length
-    );
+
+    // Calcular cuántos IMEIs hay que asignar
+    // Si compró por caja: cajas × uds_por_caja
+    // Si compró por unidad: cantidad directa
+    const imeisRequeridos = p.cantidadUnidades > 0 ? p.cantidadUnidades : (p.cantidadCajas || 1);
+    const cantAuto = Math.min(Math.max(imeisRequeridos, 1), disponibles.length);
+
     setCantidad(cantAuto);
+
+    // También auto-seleccionar los IMEIs de inmediato (no esperar al useEffect)
+    if (modoAuto) {
+      setSeleccionados(disponibles.slice(0, cantAuto).map(r => r.id));
+    }
   };
 
   /* ── Auto-seleccionar IMEIs ── */
