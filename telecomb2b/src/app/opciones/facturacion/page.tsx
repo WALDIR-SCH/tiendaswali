@@ -41,13 +41,13 @@ export default function FacturacionPage() {
   const [mostrarDatosFiscales, setMostrarDatosFiscales] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6 min-h-screen" style={{backgroundColor: '#F3F4F6'}}>
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-white">Facturación</h1>
-          <p className="text-slate-400 mt-2">Gestión de facturas y datos fiscales</p>
+          <h1 className="text-3xl font-bold" style={{color: '#4B5563'}}>Facturación</h1>
+          <p className="mt-2" style={{color: '#6B7280'}}>Gestión de facturas y datos fiscales</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors" style={{backgroundColor: '#9851F9'}}>
           <Plus size={18} />
           Nueva Factura
         </button>
@@ -57,95 +57,92 @@ export default function FacturacionPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Resumen financiero */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-xl p-6">
+            <div className="bg-white rounded-xl p-6 shadow-sm cursor-pointer transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px', backgroundColor: 'rgba(40, 251, 75, 0.08)'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(40, 251, 75, 0.15)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(40, 251, 75, 0.08)'}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-white">$5,191.25</div>
-                  <div className="text-slate-400">Total Facturado</div>
+                  <div className="text-2xl font-bold" style={{color: '#4B5563'}}>$5,191.25</div>
+                  <div style={{color: '#6B7280'}}>Total Facturado</div>
                 </div>
-                <DollarSign size={24} className="text-emerald-400" />
+                <DollarSign size={24} style={{color: '#28FB4B'}} />
               </div>
             </div>
-            <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-xl p-6">
+            <div className="bg-white rounded-xl p-6 shadow-sm cursor-pointer transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px', backgroundColor: 'rgba(246, 250, 0, 0.12)'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(246, 250, 0, 0.22)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(246, 250, 0, 0.12)'}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-white">$1,850.50</div>
-                  <div className="text-slate-400">Pendiente</div>
+                  <div className="text-2xl font-bold" style={{color: '#4B5563'}}>$1,850.50</div>
+                  <div style={{color: '#6B7280'}}>Pendiente</div>
                 </div>
-                <Calendar size={24} className="text-amber-400" />
+                <Calendar size={24} style={{color: '#F6FA00'}} />
               </div>
             </div>
-            <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-xl p-6">
+            <div className="bg-white rounded-xl p-6 shadow-sm cursor-pointer transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px', backgroundColor: 'rgba(152, 81, 249, 0.10)'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(152, 81, 249, 0.18)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(152, 81, 249, 0.10)'}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-2xl font-bold text-white">3</div>
-                  <div className="text-slate-400">Facturas</div>
+                  <div className="text-2xl font-bold" style={{color: '#4B5563'}}>3</div>
+                  <div style={{color: '#6B7280'}}>Facturas</div>
                 </div>
-                <FileText size={24} className="text-cyan-400" />
+                <FileText size={24} style={{color: '#9851F9'}} />
               </div>
             </div>
           </div>
 
           {/* Lista de facturas */}
-          <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-2xl overflow-hidden">
-            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Historial de Facturas</h2>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px'}}>
+            <div className="p-6 flex justify-between items-center" style={{borderBottomColor: '#D1D5D8', borderBottomWidth: '1px'}}>
+              <h2 className="text-xl font-bold" style={{color: '#4B5563'}}>Historial de Facturas</h2>
               <div className="flex gap-2">
-                <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-                  <Filter size={18} className="text-slate-400" />
+                <button className="p-2 rounded-lg transition-all duration-300" style={{backgroundColor: '#E5E7EB'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D1D5D8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}>
+                  <Filter size={18} style={{color: '#1F408C'}} />
                 </button>
-                <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-                  <Printer size={18} className="text-slate-400" />
+                <button className="p-2 rounded-lg transition-all duration-300" style={{backgroundColor: '#E5E7EB'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D1D5D8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}>
+                  <Printer size={18} style={{color: '#1F408C'}} />
                 </button>
               </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="text-left py-4 px-6 text-slate-400 font-semibold">Factura</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-semibold">Fecha</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-semibold">Estado</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-semibold">Total</th>
-                    <th className="text-left py-4 px-6 text-slate-400 font-semibold">Acciones</th>
+                  <tr style={{borderBottomColor: '#D1D5D8', borderBottomWidth: '1px'}}>
+                    <th className="text-left py-4 px-6 font-semibold" style={{color: '#6B7280'}}>Factura</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{color: '#6B7280'}}>Fecha</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{color: '#6B7280'}}>Estado</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{color: '#6B7280'}}>Total</th>
+                    <th className="text-left py-4 px-6 font-semibold" style={{color: '#6B7280'}}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {facturas.map((factura) => (
-                    <tr key={factura.id} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                    <tr key={factura.id} style={{borderBottomColor: '#D1D5D8', borderBottomWidth: '1px'}} className="hover:bg-gray-50">
                       <td className="py-4 px-6">
-                        <div className="font-bold text-white">{factura.id}</div>
-                        <div className="text-sm text-slate-500">{factura.tipo}</div>
+                        <div className="font-bold" style={{color: '#4B5563'}}>{factura.id}</div>
+                        <div className="text-sm" style={{color: '#6B7280'}}>{factura.tipo}</div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-white">{factura.fecha}</div>
-                        <div className="text-sm text-slate-500">Vence: {factura.fechaVencimiento}</div>
+                        <div style={{color: '#4B5563'}}>{factura.fecha}</div>
+                        <div className="text-sm" style={{color: '#6B7280'}}>Vence: {factura.fechaVencimiento}</div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${
-                          factura.estado === 'Pagada' 
-                            ? 'bg-emerald-900/30 text-emerald-400' 
-                            : factura.estado === 'Pendiente'
-                            ? 'bg-amber-900/30 text-amber-400'
-                            : 'bg-red-900/30 text-red-400'
-                        }`}>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full" style={{
+                          backgroundColor: factura.estado === 'Pagada' ? 'rgba(40, 251, 75, 0.15)' : factura.estado === 'Pendiente' ? 'rgba(246, 250, 0, 0.25)' : 'rgba(220, 38, 38, 0.15)',
+                          color: factura.estado === 'Pagada' ? '#065f46' : factura.estado === 'Pendiente' ? '#000' : '#991b1b'
+                        }}>
                           <span className="text-sm font-medium">{factura.estado}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-lg font-bold text-white">{factura.total}</div>
-                        <div className="text-sm text-slate-500">{factura.descripcion}</div>
+                        <div className="text-lg font-bold" style={{color: '#4B5563'}}>{factura.total}</div>
+                        <div className="text-sm" style={{color: '#6B7280'}}>{factura.descripcion}</div>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex gap-2">
-                          <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-                            <Eye size={18} className="text-slate-400" />
+                          <button className="p-2 rounded-lg transition-all duration-300" style={{backgroundColor: '#E5E7EB'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D1D5D8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}>
+                            <Eye size={18} style={{color: '#1F408C'}} />
                           </button>
-                          <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-                            <Download size={18} className="text-slate-400" />
+                          <button className="p-2 rounded-lg transition-all duration-300" style={{backgroundColor: '#E5E7EB'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D1D5D8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}>
+                            <Download size={18} style={{color: '#ff0000'}} />
                           </button>
-                          <button className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg">
-                            <Share2 size={18} className="text-slate-400" />
+                          <button className="p-2 rounded-lg transition-all duration-300" style={{backgroundColor: '#E5E7EB'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#D1D5D8'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'}>
+                            <Share2 size={18} style={{color: '#0055ff'}} />
                           </button>
                         </div>
                       </td>
@@ -159,59 +156,60 @@ export default function FacturacionPage() {
 
         {/* Panel derecho - Datos fiscales */}
         <div className="space-y-6">
-          <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Building size={20} />
+          <div className="bg-white rounded-2xl p-6 shadow-sm transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px'}}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{color: '#4B5563'}}>
+              <Building size={20} style={{color: '#9851F9'}} />
               Datos Fiscales
             </h3>
             
             <div className="space-y-4">
               <div>
-                <div className="text-sm text-slate-400 mb-1">Razón Social</div>
-                <div className="text-white font-medium">FiberPlus S.A.C</div>
+                <div className="text-sm mb-1" style={{color: '#6B7280'}}>Razón Social</div>
+                <div className="font-medium" style={{color: '#4B5563'}}>FiberPlus S.A.C</div>
               </div>
               
               <div>
-                <div className="text-sm text-slate-400 mb-1">RUC</div>
-                <div className="text-white font-medium">20123456789</div>
+                <div className="text-sm mb-1" style={{color: '#6B7280'}}>RUC</div>
+                <div className="font-medium" style={{color: '#4B5563'}}>20123456789</div>
               </div>
               
               <div>
-                <div className="text-sm text-slate-400 mb-1">Dirección Fiscal</div>
-                <div className="text-white font-medium">Calle Unamba 123</div>
+                <div className="text-sm mb-1" style={{color: '#6B7280'}}>Dirección Fiscal</div>
+                <div className="font-medium" style={{color: '#4B5563'}}>Calle Unamba 123</div>
               </div>
               
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <div className="text-sm text-slate-400 mb-1">Ciudad</div>
-                  <div className="text-white font-medium">Abancay</div>
+                  <div className="text-sm mb-1" style={{color: '#6B7280'}}>Ciudad</div>
+                  <div className="font-medium" style={{color: '#4B5563'}}>Abancay</div>
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm text-slate-400 mb-1">Código Postal</div>
-                  <div className="text-white font-medium">03001</div>
+                  <div className="text-sm mb-1" style={{color: '#6B7280'}}>Código Postal</div>
+                  <div className="font-medium" style={{color: '#4B5563'}}>03001</div>
                 </div>
               </div>
               
               <button
                 onClick={() => setMostrarDatosFiscales(!mostrarDatosFiscales)}
-                className="w-full mt-4 py-2 text-cyan-400 hover:text-cyan-300 text-sm font-medium"
+                className="w-full mt-4 py-2 text-sm font-medium transition-colors hover:opacity-80"
+                style={{color: '#9851F9'}}
               >
                 {mostrarDatosFiscales ? 'Ocultar detalles' : 'Mostrar más detalles'}
               </button>
               
               {mostrarDatosFiscales && (
-                <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                <div className="mt-4 pt-4 space-y-3" style={{borderTopColor: '#D1D5D8', borderTopWidth: '1px'}}>
                   <div>
-                    <div className="text-sm text-slate-400 mb-1">Registro Tributario</div>
-                    <div className="text-white font-medium">Activo</div>
+                    <div className="text-sm mb-1" style={{color: '#6B7280'}}>Registro Tributario</div>
+                    <div className="font-medium" style={{color: '#4B5563'}}>Activo</div>
                   </div>
                   <div>
-                    <div className="text-sm text-slate-400 mb-1">Condición Fiscal</div>
-                    <div className="text-white font-medium">Responsable Inscripto</div>
+                    <div className="text-sm mb-1" style={{color: '#6B7280'}}>Condición Fiscal</div>
+                    <div className="font-medium" style={{color: '#4B5563'}}>Responsable Inscripto</div>
                   </div>
                   <div>
-                    <div className="text-sm text-slate-400 mb-1">Tipo de Contribuyente</div>
-                    <div className="text-white font-medium">Persona Jurídica</div>
+                    <div className="text-sm mb-1" style={{color: '#6B7280'}}>Tipo de Contribuyente</div>
+                    <div className="font-medium" style={{color: '#4B5563'}}>Persona Jurídica</div>
                   </div>
                 </div>
               )}
@@ -219,29 +217,29 @@ export default function FacturacionPage() {
           </div>
 
           {/* Métodos de pago */}
-          <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <CreditCard size={20} />
+          <div className="bg-white rounded-2xl p-6 shadow-sm transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px'}}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{color: '#4B5563'}}>
+              <CreditCard size={20} style={{color: '#FF6600'}} />
               Métodos de Pago
             </h3>
             
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
+              <div className="flex items-center justify-between p-3 rounded-lg transition-all duration-300" style={{backgroundColor: '#F3F4F6'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-6 bg-blue-600 rounded flex items-center justify-center">
+                  <div className="w-10 h-6 rounded flex items-center justify-center" style={{backgroundColor: '#9851F9'}}>
                     <span className="text-xs font-bold text-white">VISA</span>
                   </div>
                   <div>
-                    <div className="text-white text-sm">**** **** **** 4321</div>
-                    <div className="text-slate-400 text-xs">Principal</div>
+                    <div className="text-sm" style={{color: '#4B5563'}}>**** **** **** 4321</div>
+                    <div className="text-xs" style={{color: '#6B7280'}}>Principal</div>
                   </div>
                 </div>
-                <button className="text-slate-400 hover:text-white">
+                <button style={{color: '#1F408C'}} className="hover:opacity-70 transition-opacity">
                   <Eye size={16} />
                 </button>
               </div>
               
-              <button className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-700 hover:border-cyan-500 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors">
+              <button className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed rounded-lg transition-all duration-300" style={{borderColor: '#FF6600', color: '#FF6600'}} onMouseEnter={(e) => {e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.08)'; e.currentTarget.style.borderColor = '#FF6600';}} onMouseLeave={(e) => {e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = '#FF6600';}}>
                 <Plus size={18} />
                 Agregar método de pago
               </button>
@@ -249,20 +247,20 @@ export default function FacturacionPage() {
           </div>
 
           {/* Acciones rápidas */}
-          <div className="bg-slate-900/50 backdrop-blur-lg border border-slate-800 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-white mb-4">Acciones Rápidas</h3>
+          <div className="bg-white rounded-2xl p-6 shadow-sm transition-all duration-300 hover:shadow-lg" style={{borderColor: '#D1D5D8', borderWidth: '1px'}}>
+            <h3 className="text-lg font-bold mb-4" style={{color: '#4B5563'}}>Acciones Rápidas</h3>
             <div className="space-y-3">
-              <button className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                <span className="text-white">Descargar certificado</span>
-                <Download size={16} className="text-slate-400" />
+              <button className="w-full flex items-center justify-between p-3 rounded-lg transition-all duration-300" style={{backgroundColor: '#F3F4F6'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}>
+                <span style={{color: '#4B5563'}}>Descargar certificado</span>
+                <Download size={16} style={{color: '#ff0000'}} />
               </button>
-              <button className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                <span className="text-white">Actualizar datos</span>
-                <Edit size={16} className="text-slate-400" />
+              <button className="w-full flex items-center justify-between p-3 rounded-lg transition-all duration-300" style={{backgroundColor: '#F3F4F6'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}>
+                <span style={{color: '#4B5563'}}>Actualizar datos</span>
+                <Edit size={16} style={{color: '#9851F9'}} />
               </button>
-              <button className="w-full flex items-center justify-between p-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                <span className="text-white">Contactar contabilidad</span>
-                <MapPin size={16} className="text-slate-400" />
+              <button className="w-full flex items-center justify-between p-3 rounded-lg transition-all duration-300" style={{backgroundColor: '#F3F4F6'}} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E7EB'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F3F4F6'}>
+                <span style={{color: '#4B5563'}}>Contactar contabilidad</span>
+                <MapPin size={16} style={{color: '#ff0000'}} />
               </button>
             </div>
           </div>
