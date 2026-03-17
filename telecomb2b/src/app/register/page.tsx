@@ -45,17 +45,43 @@ const DOMINIOS_BLOQUEADOS = [
 ];
 
 const SECTORES = [
-  "Telecomunicaciones / ISP","Integrador de Redes / TI","Distribuidor Tecnología",
-  "Instalador de Fibra Óptica","Operadora de Telecomunicaciones","Mantenimiento de Redes",
-  "Consultoría IT","Empresa Corporativa (Internal IT)","Gobierno / Sector Público",
-  "Educación / Universidad","Centro de Datos","Seguridad Electrónica",
-  "Minería / Energía","Retail / Comercio","Construcción / Inmobiliaria",
-  "Salud / Clínicas","Hotelería / Turismo","Transporte / Logística","Otro",
+  // Distribución y venta de celulares
+  "Distribuidor mayorista de celulares",
+  "Tienda o cadena de celulares (retail)",
+  "Operador o revendedor de telefonía móvil",
+  "Importador / exportador de tecnología",
+  // Empresas que compran para su operación o reventa
+  "Empresa de telecomunicaciones / ISP",
+  "Proveedor de servicios TI",
+  "Integrador tecnológico",
+  // Sectores que adquieren celulares en volumen
+  "Empresa corporativa (flota de equipos)",
+  "Institución educativa (equipamiento)",
+  "Gobierno / sector público",
+  "Banca y servicios financieros",
+  "Logística y transporte",
+  "Salud / clínicas",
+  "Minería y energía",
+  "Hotelería y turismo",
+  // Otros
+  "Otro",
 ];
 
 const TAMANIOS = [
-  "Microempresa (1-10 trabajadores)","Pequeña Empresa (11-50 trabajadores)",
-  "Mediana Empresa (51-250 trabajadores)","Gran Empresa (+250 trabajadores)",
+  "Emprendimiento / Negocio unipersonal",
+  "Microempresa (hasta 10 empleados)",
+  "Pequeña empresa (11 – 50 empleados)",
+  "Mediana empresa (51 – 200 empleados)",
+  "Gran empresa (más de 200 empleados)",
+];
+
+// Volumen mensual de compra
+const VOLUMENES = [
+  "Menos de 10 unidades/mes",
+  "10 – 50 unidades/mes",
+  "51 – 200 unidades/mes",
+  "201 – 500 unidades/mes",
+  "Más de 500 unidades/mes",
 ];
 
 const DEPARTAMENTOS = [
@@ -92,7 +118,7 @@ export default function RegisterPage() {
     nombre:"", cargo:"", email:"", telefono:"",
     razonSocial:"", nombreComercial:"", ruc:"",
     direccionFiscal:"", departamento:"", distrito:"", ciudad:"", codigoPostal:"",
-    sectorActividad:"", tamanioEmpresa:"",
+    sectorActividad:"", tamanioEmpresa:"", volumenCompra:"",
     password:"", confirmPassword:"",
     aceptaTerminosB2B:false, aceptaPoliticaPrivacidad:false,
   });
@@ -124,6 +150,7 @@ export default function RegisterPage() {
     if (s===3) {
       if (!form.sectorActividad) { setError("Selecciona el sector de tu empresa"); return false; }
       if (!form.tamanioEmpresa)  { setError("Selecciona el tamaño de tu empresa"); return false; }
+      if (!form.volumenCompra)   { setError("Indica el volumen mensual de compra"); return false; }
     }
     if (s===4) {
       if (!form.password || form.password.length<8) { setError("La contraseña debe tener al menos 8 caracteres"); return false; }
@@ -152,7 +179,7 @@ export default function RegisterPage() {
         ruc, direccionFiscal:form.direccionFiscal,
         departamento:form.departamento, distrito:form.distrito||"",
         ciudad:form.ciudad||form.departamento, codigoPostal:form.codigoPostal||"", pais:"Perú",
-        sectorActividad:form.sectorActividad, tamanioEmpresa:form.tamanioEmpresa,
+        sectorActividad:form.sectorActividad, tamanioEmpresa:form.tamanioEmpresa, volumenCompra:form.volumenCompra,
         rol:"cliente_pendiente", estado:"pendiente_verificacion",
         fecha_registro:new Date(), verificado:false,
         acceso_catalogo:false, acceso_precios:false,
@@ -167,7 +194,7 @@ export default function RegisterPage() {
         ciudad:form.ciudad||form.departamento, pais:"Perú",
         representanteLegal:form.nombre, cargoRepresentante:form.cargo,
         emailPrincipal:form.email, telefonoContacto:form.telefono,
-        sectorActividad:form.sectorActividad, tamanioEmpresa:form.tamanioEmpresa,
+        sectorActividad:form.sectorActividad, tamanioEmpresa:form.tamanioEmpresa, volumenCompra:form.volumenCompra,
         adminId:user.uid, usuarios:[user.uid],
         estado:"pendiente_verificacion", nivelAcceso:"pendiente", categoriaCliente:"nuevo",
         fecha_registro:new Date(), fecha_verificacion:null, verificadoPor:null,
@@ -293,26 +320,81 @@ export default function RegisterPage() {
       );
 
       case 3: return (
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          {/* Sector */}
           <div>
-            <label style={{ fontSize:13, fontWeight:700, color:C.gray700, display:"block", marginBottom:6 }}>Sector de actividad <span style={{ color:C.orange }}>*</span></label>
+            <label style={{ fontSize:13, fontWeight:700, color:C.gray700, display:"block", marginBottom:6 }}>
+              Sector de actividad <span style={{ color:C.orange }}>*</span>
+            </label>
             <select value={form.sectorActividad} onChange={set("sectorActividad")} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
-              <option value="">Selecciona tu sector</option>
-              {SECTORES.map(s=><option key={s} value={s}>{s}</option>)}
+              <option value="">¿A qué se dedica tu empresa?</option>
+              <optgroup label="── Distribución y venta de celulares ──">
+                <option value="Distribuidor mayorista de celulares">Distribuidor mayorista de celulares</option>
+                <option value="Tienda o cadena de celulares (retail)">Tienda o cadena de celulares (retail)</option>
+                <option value="Operador o revendedor de telefonía móvil">Operador o revendedor de telefonía móvil</option>
+                <option value="Importador / exportador de tecnología">Importador / exportador de tecnología</option>
+              </optgroup>
+              <optgroup label="── Empresas TI y telecomunicaciones ──">
+                <option value="Empresa de telecomunicaciones / ISP">Empresa de telecomunicaciones / ISP</option>
+                <option value="Proveedor de servicios TI">Proveedor de servicios TI</option>
+                <option value="Integrador tecnológico">Integrador tecnológico</option>
+              </optgroup>
+              <optgroup label="── Compras corporativas en volumen ──">
+                <option value="Empresa corporativa (flota de equipos)">Empresa corporativa (flota de equipos)</option>
+                <option value="Institución educativa (equipamiento)">Institución educativa (equipamiento)</option>
+                <option value="Gobierno / sector público">Gobierno / sector público</option>
+                <option value="Banca y servicios financieros">Banca y servicios financieros</option>
+                <option value="Logística y transporte">Logística y transporte</option>
+                <option value="Salud / clínicas">Salud / clínicas</option>
+                <option value="Minería y energía">Minería y energía</option>
+                <option value="Hotelería y turismo">Hotelería y turismo</option>
+              </optgroup>
+              <optgroup label="── Otro ──">
+                <option value="Otro">Otro</option>
+              </optgroup>
             </select>
           </div>
+
+          {/* Tamaño */}
           <div>
-            <label style={{ fontSize:13, fontWeight:700, color:C.gray700, display:"block", marginBottom:6 }}>Tamaño de la empresa <span style={{ color:C.orange }}>*</span></label>
-            <select value={form.tamanioEmpresa} onChange={set("tamanioEmpresa")} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
-              <option value="">Selecciona el tamaño</option>
-              {TAMANIOS.map(t=><option key={t} value={t}>{t}</option>)}
-            </select>
+            <label style={{ fontSize:13, fontWeight:700, color:C.gray700, display:"block", marginBottom:6 }}>
+              Tamaño de la empresa <span style={{ color:C.orange }}>*</span>
+            </label>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {TAMANIOS.map(t => (
+                <button type="button" key={t} onClick={() => setForm(f=>({...f, tamanioEmpresa:t}))}
+                  style={{ padding:"10px 12px", borderRadius:10, border:`1.5px solid ${form.tamanioEmpresa===t ? C.purple : C.gray200}`, background:form.tamanioEmpresa===t ? C.purpleBg : C.white, cursor:"pointer", textAlign:"left", transition:"all .15s" }}>
+                  <p style={{ margin:0, fontSize:12, fontWeight:700, color:form.tamanioEmpresa===t ? C.purple : C.gray700, lineHeight:1.3 }}>{t}</p>
+                </button>
+              ))}
+            </div>
           </div>
-          <div style={{ padding:"14px 16px", borderRadius:12, background:C.purpleBg, border:`1px solid ${C.purpleBorder}` }}>
-            <p style={{ margin:0, fontSize:13, color:C.purple, fontWeight:700 }}>¿Por qué necesitamos esta info?</p>
-            <p style={{ margin:"4px 0 0", fontSize:12, color:C.purple, opacity:.8 }}>
-              Nos permite asignarte precios y condiciones de compra adecuados para tu tipo de empresa.
-            </p>
+
+          {/* Volumen mensual */}
+          <div>
+            <label style={{ fontSize:13, fontWeight:700, color:C.gray700, display:"block", marginBottom:6 }}>
+              Volumen mensual de compra <span style={{ color:C.orange }}>*</span>
+            </label>
+            <p style={{ fontSize:11, color:C.gray500, margin:"0 0 8px" }}>¿Cuántos celulares o cajas compras aproximadamente al mes?</p>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {VOLUMENES.map(v => (
+                <button type="button" key={v} onClick={() => setForm(f=>({...f, volumenCompra:v}))}
+                  style={{ padding:"10px 12px", borderRadius:10, border:`1.5px solid ${form.volumenCompra===v ? C.orange : C.gray200}`, background:form.volumenCompra===v ? C.orangeBg : C.white, cursor:"pointer", textAlign:"left", transition:"all .15s" }}>
+                  <p style={{ margin:0, fontSize:12, fontWeight:700, color:form.volumenCompra===v ? C.orange : C.gray700 }}>{v}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Info */}
+          <div style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", borderRadius:12, background:C.purpleBg, border:`1px solid ${C.purpleBorder}` }}>
+            <Smartphone size={15} style={{ color:C.purple, flexShrink:0, marginTop:1 }} />
+            <div>
+              <p style={{ margin:0, fontSize:13, color:C.purple, fontWeight:700 }}>¿Por qué pedimos esto?</p>
+              <p style={{ margin:"3px 0 0", fontSize:12, color:C.purple, opacity:.8, lineHeight:1.5 }}>
+                En Tiendas Waly asignamos precios, descuentos y condiciones de crédito según tu tipo de negocio y volumen. Esta información nos ayuda a darte la mejor oferta mayorista.
+              </p>
+            </div>
           </div>
         </div>
       );

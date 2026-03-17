@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { auth, db } from "@/lib/firebase";
 import {
   collection, query, where, onSnapshot, doc, updateDoc,
-  serverTimestamp, addDoc, increment
+  serverTimestamp, addDoc, increment, orderBy, limit,
 } from "firebase/firestore";
 import {
   Package, Clock, CheckCircle, Truck, AlertCircle, Eye, Download,
@@ -11,7 +11,9 @@ import {
   Receipt, MapPin, Building, Hash, History, MessageCircle,
   Bell, Filter, DollarSign, CalendarDays, Shield, X,
   FileSpreadsheet, Star, Camera, Send, ChevronDown,
-  RefreshCw, ArrowRight, Box, Layers
+  RefreshCw, ArrowRight, Box, Layers,
+  Navigation, Copy, CheckCircle2, ExternalLink, ZoomIn, ImageIcon,
+  FileText as FileTextIcon, PackageCheck, Ban,
 } from "lucide-react";
 import Link from "next/link";
 import jsPDF from "jspdf";
@@ -21,9 +23,16 @@ import * as XLSX from "xlsx";
 const C = {
   purple:     "#9851F9",
   purpleDark: "#7c3aed",
+  purpleBg:   "#ede9fe",
+  purpleBorder:"#ddd6fe",
   orange:     "#FF6600",
+  orangeBg:   "#fff7ed",
+  orangeBorder:"#fed7aa",
   yellow:     "#F6FA00",
   green:      "#28FB4B",
+  greenDark:  "#16a34a",
+  greenBg:    "#f0fdf4",
+  greenBorder:"#bbf7d0",
   white:      "#FFFFFF",
   gray100:    "#F3F4F6",
   gray200:    "#E5E7EB",
@@ -34,6 +43,9 @@ const C = {
   gray700:    "#374151",
   gray800:    "#1F2937",
   gray900:    "#111827",
+  red:        "#dc2626",
+  redBg:      "#fef2f2",
+  redBorder:  "#fecaca",
 } as const;
 
 const fmt = (n: number) =>
@@ -181,6 +193,83 @@ const ItemLinea = ({ item, esEntregado, calificado, onCalificar }: {
   );
 };
 
+/* ── URL de tracking por courier ── */
+const getTrackingUrl = (guia: string, transp: string) => {
+  const t = (transp||"").toLowerCase();
+  if (!guia) return null;
+  if (t.includes("olva"))       return `https://www.olvacourier.com/seguimiento/envios?guia=${guia}`;
+  if (t.includes("shalom"))     return `https://www.shalom.com.pe/tracking/${guia}`;
+  if (t.includes("otr"))        return `https://www.otr.pe/rastreo?guia=${guia}`;
+  if (t.includes("rapidísimo") || t.includes("rapidisimo")) return `https://www.rapidisimocourier.com/rastreo?guia=${guia}`;
+  if (t.includes("dhl"))        return `https://www.dhl.com/pe-es/home/tracking.html?tracking-id=${guia}`;
+  return null;
+};
+
+/* ── Pipeline visual del estado del pedido ── */
+const PIPELINE = [
+  { id:"pendiente",  label:"Pendiente",  icon:Clock          },
+  { id:"pagado",     label:"Pagado",     icon:CheckCircle    },
+  { id:"enproceso",  label:"En Proceso", icon:Package        },
+  { id:"enviado",    label:"Enviado",    icon:Truck          },
+  { id:"entregado",  label:"Entregado",  icon:PackageCheck   },
+];
+
+const PipelineEstado = ({ estado }: { estado: string }) => {
+  const est = (estado||"pendiente").toLowerCase().replace(/\s/g,"");
+  const cancelado = est === "cancelado";
+  const idxActual = PIPELINE.findIndex(p =>
+    est.includes(p.id) || (p.id === "enproceso" && est.includes("proceso"))
+  );
+
+  if (cancelado) return (
+    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 14px", borderRadius:12, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)" }}>
+      <Ban size={15} style={{ color:"#dc2626" }} />
+      <span style={{ fontSize:13, fontWeight:700, color:"#dc2626" }}>Pedido Cancelado</span>
+    </div>
+  );
+
+  return (
+    <div style={{ padding:"14px 16px", borderRadius:14, background:C.gray100, border:`1px solid ${C.gray200}`, overflowX:"auto" }}>
+      <div style={{ display:"flex", alignItems:"center", minWidth:400 }}>
+        {PIPELINE.map((p, i) => {
+          const done    = idxActual > i;
+          const current = idxActual === i;
+          const Icon    = p.icon;
+          return (
+            <div key={p.id} style={{ flex:1, display:"flex", alignItems:"center" }}>
+              {/* Línea conectora izquierda */}
+              {i > 0 && (
+                <div style={{ flex:1, height:3, borderRadius:2, background: done || current ? C.purpleDark : C.gray300, transition:"background .3s" }} />
+              )}
+              {/* Círculo */}
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, flexShrink:0 }}>
+                <div style={{
+                  width:36, height:36, borderRadius:"50%",
+                  background: current ? C.purpleDark : done ? C.greenDark : C.gray300,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  boxShadow: current ? `0 0 0 4px ${C.purpleDark}25` : "none",
+                  transition:"all .3s",
+                }}>
+                  {done
+                    ? <CheckCircle2 size={16} color={C.white} />
+                    : <Icon size={16} color={current ? C.white : C.gray500} />}
+                </div>
+                <span style={{ fontSize:9, fontWeight:700, color:current ? C.purpleDark : done ? C.greenDark : C.gray400, textAlign:"center", whiteSpace:"nowrap", letterSpacing:"0.03em" }}>
+                  {p.label}
+                </span>
+              </div>
+              {/* Línea conectora derecha (solo si no es el último) */}
+              {i < PIPELINE.length-1 && (
+                <div style={{ flex:1, height:3, borderRadius:2, background: done ? C.greenDark : C.gray300, transition:"background .3s" }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════ */
 export default function MisPedidosPage() {
   const [pedidos,      setPedidos]      = useState<any[]>([]);
@@ -191,6 +280,7 @@ export default function MisPedidosPage() {
   const [showTraza,    setShowTraza]    = useState<string | null>(null);
   const [notifPanel,   setNotifPanel]   = useState(false);
   const [notifs,       setNotifs]       = useState<any[]>([]);
+  const [copiados,     setCopiados]     = useState<Set<string>>(new Set());
   const [showFiltros,  setShowFiltros]  = useState(false);
   const [filtrosAv,    setFiltrosAv]    = useState({ fechaInicio:"", fechaFin:"", montoMin:"", montoMax:"", transportista:"" });
 
@@ -220,6 +310,57 @@ export default function MisPedidosPage() {
       return () => unsubSnap();
     });
     return () => unsub();
+  }, []);
+
+  // ── Escuchar notificaciones en tiempo real ──
+  // Depende de que el usuario esté autenticado. Se suscribe dentro del
+  // onAuthStateChanged para garantizar que user.email no sea null.
+  useEffect(() => {
+    let unsubNotif: (() => void) | null = null;
+
+    const unsubAuth = auth.onAuthStateChanged(user => {
+      // Limpiar listener anterior si existía
+      if (unsubNotif) { unsubNotif(); unsubNotif = null; }
+      if (!user?.email) return;
+
+      try {
+        const q = query(
+          collection(db, "notificaciones"),
+          where("clienteEmail", "==", user.email),
+          limit(20)
+        );
+        unsubNotif = onSnapshot(q,
+          snap => {
+            const todas = snap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .sort((a: any, b: any) => {
+                const ta = a.timestamp?.toMillis?.() || (a.timestamp?.seconds || 0) * 1000;
+                const tb = b.timestamp?.toMillis?.() || (b.timestamp?.seconds || 0) * 1000;
+                return tb - ta;
+              })
+              .slice(0, 15);
+
+            setNotifs(prev => {
+              const leidasLocales = new Set(prev.filter((n:any) => n.leida).map((n:any) => n.id));
+              return todas.map((n: any) => ({
+                ...n,
+                leida: leidasLocales.has(n.id) ? true : Boolean(n.leida),
+                tipo: n.tipo || "envio",
+              }));
+            });
+          },
+          err => {
+            // Error silencioso — no interrumpir la app
+            console.warn("Notificaciones listener:", err.message);
+          }
+        );
+      } catch { /* silencioso */ }
+    });
+
+    return () => {
+      unsubAuth();
+      if (unsubNotif) unsubNotif();
+    };
   }, []);
 
   const generarNotifs = (ps: any[]) => {
@@ -256,27 +397,68 @@ export default function MisPedidosPage() {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error("Sin sesión");
+
+      // El id del producto puede venir como "abc-caja" o "abc-unidad" desde el carrito
+      // Necesitamos el id original del documento en Firestore
+      const productoId: string =
+        prodSel.idOriginal ||          // si viene del CartContext
+        prodSel.productoId ||           // campo explícito
+        (prodSel.id || "").replace(/-caja$|-unidad$/, "") || // quitar sufijo
+        prodSel.id;
+
+      if (!productoId) throw new Error("No se pudo identificar el producto");
+
+      // Subir fotos (si las hay)
       const urls: string[] = [];
-      for (const f of imagenesRes) urls.push(await subirCloudinary(f));
-      await addDoc(collection(db, "productos", prodSel.id, "reseñas"), {
-        usuario: user.displayName || user.email?.split("@")[0] || "Usuario",
-        usuarioEmail: user.email, usuarioId: user.uid,
-        usuarioFoto: user.photoURL || null,
-        comentario: comentario.trim(), rating: puntuacion,
-        imagenes: urls, fecha: serverTimestamp(),
-        verificado: true, util: 0, pedidoId: pedidoSel.id
+      for (const f of imagenesRes) {
+        try { urls.push(await subirCloudinary(f)); }
+        catch { /* si falla cloudinary, continuar sin la foto */ }
+      }
+
+      // Guardar reseña en subcolección
+      await addDoc(collection(db, "productos", productoId, "reseñas"), {
+        usuario:      user.displayName || user.email?.split("@")[0] || "Usuario",
+        usuarioEmail: user.email,
+        usuarioId:    user.uid,
+        usuarioFoto:  user.photoURL || null,
+        comentario:   comentario.trim(),
+        rating:       puntuacion,
+        imagenes:     urls,
+        fecha:        serverTimestamp(),
+        verificado:   true,
+        util:         0,
+        pedidoId:     pedidoSel.id,
+        nombreProducto: prodSel.nombre || "",
       });
-      await updateDoc(doc(db, "productos", prodSel.id), {
-        total_resenas: increment(1), rating_promedio: increment(puntuacion)
-      });
-      await updateDoc(doc(db, "pedidos", pedidoSel.id), {
-        productosCalificados: [...(pedidoSel.productosCalificados||[]), prodSel.id]
-      });
+
+      // Actualizar contador en el producto (no crítico — puede fallar si el doc no existe)
+      try {
+        await updateDoc(doc(db, "productos", productoId), {
+          total_resenas:   increment(1),
+          rating_promedio: increment(puntuacion),
+        });
+      } catch { /* el producto puede no existir aún, no bloquear */ }
+
+      // Marcar como calificado en el pedido
+      try {
+        await updateDoc(doc(db, "pedidos", pedidoSel.id), {
+          productosCalificados: [...(pedidoSel.productosCalificados || []), prodSel.id],
+        });
+      } catch { /* no crítico */ }
+
       alert("✅ ¡Gracias por tu opinión!");
       setModalOpinion(false); setPedidoSel(null); setProdSel(null);
       setPuntuacion(5); setComentario(""); setImagenesRes([]); setPreviews([]);
-    } catch { alert("❌ Error al enviar la reseña"); }
-    finally { setEnviando(false); }
+
+    } catch (err: any) {
+      console.error("Error enviando reseña:", err);
+      const msg = err?.code === "permission-denied"
+        ? "Sin permisos para escribir reseñas. Verifica las reglas de Firestore."
+        : err?.message?.includes("productoId") || err?.message?.includes("identificar")
+          ? "No se pudo identificar el producto. Contacta soporte."
+          : "Error al enviar la reseña: " + (err?.message || "intenta nuevamente");
+      alert("❌ " + msg);
+    } finally { setEnviando(false); }
   };
 
   const handleImgs = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -332,13 +514,18 @@ export default function MisPedidosPage() {
   };
 
   const verGuia = (guia: string, transp?: string) => {
-    const t   = (transp||"").toLowerCase();
-    const url = t.includes("olva")   ? `https://www.olvacourier.com/seguimiento/envios?guia=${guia}`
-      : t.includes("shalom") ? `https://www.shalom.com.pe/tracking/${guia}`
-      : t.includes("dhl")    ? `https://www.dhl.com/pe-es/home/tracking.html?tracking-id=${guia}`
-      : null;
+    const url = getTrackingUrl(guia, transp||"");
     if (url) window.open(url, "_blank");
-    else     alert(`📦 Guía: ${guia}\n🚚 Transportista: ${transp||"—"}`);
+    else     alert("📦 Guía: " + guia + "\n🚚 Transportista: " + (transp||"—") + "\n\nContacta a tu asesor para rastrear.");
+  };
+
+  const copiarTracking = (tracking: string) => {
+    navigator.clipboard.writeText(tracking);
+    setCopiados(prev => {
+      const n = new Set(prev); n.add(tracking);
+      setTimeout(() => setCopiados(s => { const ns = new Set(s); ns.delete(tracking); return ns; }), 2000);
+      return n;
+    });
   };
 
   const waContact = (p: any) => {
@@ -508,9 +695,30 @@ export default function MisPedidosPage() {
                         : notifs.map(n => (
                           <div key={n.id} className="px-4 py-3 cursor-pointer"
                             style={{ borderBottom:`1px solid ${C.gray100}`, background:n.leida?C.white:`${C.purple}06` }}
-                            onClick={() => setNotifs(p => p.map(x => x.id===n.id?{...x,leida:true}:x))}>
-                            <p className="text-xs font-bold" style={{ color:C.gray800 }}>{n.msg}</p>
-                            {!n.leida && <div className="w-1.5 h-1.5 rounded-full mt-1" style={{ background:C.orange }} />}
+                            onClick={async () => {
+                            setNotifs(p => p.map(x => x.id===n.id?{...x,leida:true}:x));
+                            try { await updateDoc(doc(db,"notificaciones",n.id),{leida:true}); } catch {}
+                          }}>
+                            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+                              <p className="text-xs font-bold" style={{ color:C.gray800, flex:1 }}>{n.msg || n.mensaje}</p>
+                              {!n.leida && <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1 ml-2" style={{ background:C.orange }} />}
+                            </div>
+                            {n.trackingNumber && (
+                              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
+                                <span style={{ fontSize:10, fontFamily:"monospace", fontWeight:700, color:C.purple, background:C.purpleBg, padding:"1px 6px", borderRadius:6 }}>
+                                  {n.trackingNumber}
+                                </span>
+                                {(() => {
+                                  const url = getTrackingUrl(n.trackingNumber, n.courier||"");
+                                  return url ? (
+                                    <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                                      style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none" }}>
+                                      Rastrear →
+                                    </a>
+                                  ) : null;
+                                })()}
+                              </div>
+                            )}
                           </div>
                         ))}
                     </div>
@@ -669,6 +877,53 @@ export default function MisPedidosPage() {
                           Pedido #{pedido.numeroPedido || pedido.id.slice(0,8).toUpperCase()}
                         </h3>
 
+                        {/* ── Pipeline visual de estado ── */}
+                        <div style={{ marginBottom:12 }}>
+                          <PipelineEstado estado={est} />
+                        </div>
+
+                        {/* ── Info de tracking si está enviado ── */}
+                        {(pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio) && (() => {
+                          const g = pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio;
+                          const t = pedido.courier || pedido.transportista || pedido.Transportista || "";
+                          const url = getTrackingUrl(g, t);
+                          const esCopia = copiados.has(g);
+                          return (
+                            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:C.greenBg, border:`1.5px solid ${C.greenBorder}`, marginBottom:12 }}>
+                              <div style={{ width:36, height:36, borderRadius:10, background:`${C.greenDark}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                                <Truck size={17} style={{ color:C.greenDark }} />
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <p style={{ margin:0, fontSize:11, fontWeight:700, color:C.greenDark, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                                  {t || "Courier"} · Guía de seguimiento
+                                </p>
+                                <p style={{ margin:"2px 0 0", fontSize:14, fontWeight:900, color:C.gray900, fontFamily:"monospace" }}>{g}</p>
+                                {pedido.fechaEstimadaEntrega?.toDate && (
+                                  <p style={{ margin:"2px 0 0", fontSize:11, color:C.gray500 }}>
+                                    📅 Entrega estimada: <strong>{pedido.fechaEstimadaEntrega.toDate().toLocaleDateString("es-PE",{day:"numeric",month:"short",year:"numeric"})}</strong>
+                                  </p>
+                                )}
+                                {pedido.notaEnvio && (
+                                  <p style={{ margin:"3px 0 0", fontSize:11, color:C.gray600, fontStyle:"italic" }}>"{pedido.notaEnvio}"</p>
+                                )}
+                              </div>
+                              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                                <button onClick={() => copiarTracking(g)}
+                                  style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.white, border:`1px solid ${C.greenBorder}`, fontSize:11, fontWeight:700, color:C.greenDark, cursor:"pointer" }}>
+                                  {esCopia ? <CheckCircle2 size={11}/> : <Copy size={11}/>}
+                                  {esCopia ? "Copiado" : "Copiar"}
+                                </button>
+                                {url && (
+                                  <a href={url} target="_blank" rel="noopener noreferrer"
+                                    style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.greenDark, color:C.white, textDecoration:"none", fontSize:11, fontWeight:800 }}>
+                                    <Navigation size={11}/> Rastrear
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {/* Resumen compacto de lo que compró */}
                         <div className="flex flex-wrap items-center gap-2 mb-3">
                           {resumen.totalCajas > 0 && (
@@ -770,13 +1025,17 @@ export default function MisPedidosPage() {
                         </div>
 
                         <div className="flex gap-2">
-                          {guia && (
-                            <button onClick={() => verGuia(guia, transp)}
-                              className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
-                              style={{ background:`${C.orange}10`, borderColor:`${C.orange}25`, color:C.orange }}>
-                              <FileText size={13} />Guía
-                            </button>
-                          )}
+                          {guia && (() => {
+                            const url = getTrackingUrl(guia, transp||"");
+                            return (
+                              <button onClick={() => verGuia(guia, transp)}
+                                className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
+                                style={{ background:url ? C.greenBg : `${C.orange}10`, borderColor:url ? C.greenBorder : `${C.orange}25`, color:url ? C.greenDark : C.orange }}>
+                                {url ? <Navigation size={13}/> : <FileText size={13}/>}
+                                {url ? "Rastrear" : "Guía"}
+                              </button>
+                            );
+                          })()}
                           <button onClick={() => waContact(pedido)}
                             className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
                             style={{ background:`${C.green}10`, borderColor:`${C.green}25`, color:"#15803d" }}>
@@ -829,6 +1088,30 @@ export default function MisPedidosPage() {
                           {/* Resumen pago + datos facturación */}
                           <div>
                             <h4 className="text-sm font-black mb-3" style={{ color:C.gray800 }}>Resumen de pago</h4>
+
+                            {/* Constancia de pago */}
+                            {pedido.comprobanteUrl && (
+                              <div className="rounded-xl border overflow-hidden mb-3" style={{ borderColor: C.greenBorder }}>
+                                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 12px", background:C.greenBg, borderBottom:`1px solid ${C.greenBorder}` }}>
+                                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                    <CheckCircle2 size={13} style={{ color:C.greenDark }}/>
+                                    <span style={{ fontSize:11, fontWeight:800, color:C.greenDark }}>Constancia de pago enviada</span>
+                                  </div>
+                                  <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                                    style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none", display:"flex", alignItems:"center", gap:3 }}>
+                                    <ExternalLink size={10}/> Ver
+                                  </a>
+                                </div>
+                                {!pedido.comprobanteUrl.match(/\.pdf/i) && (
+                                  <img src={pedido.comprobanteUrl} alt="Constancia"
+                                    style={{ width:"100%", maxHeight:140, objectFit:"contain", padding:8, background:C.gray100, cursor:"pointer" }}
+                                    onClick={() => window.open(pedido.comprobanteUrl, "_blank")}
+                                    onError={e => { (e.target as HTMLImageElement).style.display="none"; }}
+                                  />
+                                )}
+                              </div>
+                            )}
+
                             <div className="rounded-xl p-4 border space-y-2 mb-3" style={{ background:C.gray100, borderColor:C.gray200 }}>
                               {[
                                 ["Base Imponible", `S/ ${igv.base}`,  C.gray700],

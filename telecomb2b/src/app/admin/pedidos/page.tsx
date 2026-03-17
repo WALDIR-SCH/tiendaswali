@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, doc, updateDoc,
-  query, orderBy, where,
+  query, orderBy, where, addDoc, serverTimestamp,
 } from "firebase/firestore";
 import {
   Search, X, Loader2, Eye, Upload, ChevronLeft, ChevronRight,
@@ -11,6 +11,7 @@ import {
   Ban, Archive, TrendingUp, Users, DollarSign, ShoppingBag,
   AlertTriangle, FileSpreadsheet, FileDown, Package, Smartphone,
   ZoomIn, ExternalLink, CheckCircle2, ImageIcon, FileText as FileTextIcon,
+  Copy, Navigation, MapPin, CalendarClock, Bell, Send,
 } from "lucide-react";
 
 /* ─── TIPOS ─── */
@@ -43,6 +44,8 @@ interface Pedido {
   historialEstados?: HistorialEstado[];
   urgente?: boolean;
   imeisAsignados?: string[];
+  fechaEstimadaEntrega?: any;
+  notaEnvio?: string;
 }
 
 interface ProductoPedido {
@@ -143,15 +146,76 @@ function ModalDetalle({ pedido, productos, onClose, onActualizarEnvio }: {
   onClose: () => void;
   onActualizarEnvio: (id: string, tracking: string, courier: string) => void;
 }) {
-  const [courier,  setCourier]  = useState(pedido.courier || "");
-  const [tracking, setTracking] = useState(pedido.trackingNumber || pedido.guiaEnvio || "");
-  const [saving,   setSaving]   = useState(false);
+  const [courier,       setCourier]       = useState(pedido.courier || "");
+  const [tracking,      setTracking]      = useState(pedido.trackingNumber || pedido.guiaEnvio || "");
+  const [fechaEst,      setFechaEst]      = useState<string>(() => {
+    if (pedido.fechaEstimadaEntrega?.toDate) {
+      const d = pedido.fechaEstimadaEntrega.toDate();
+      return d.toISOString().split("T")[0];
+    }
+    // default: 3 dias desde hoy
+    const d = new Date(); d.setDate(d.getDate()+3);
+    return d.toISOString().split("T")[0];
+  });
+  const [notaEnvio,     setNotaEnvio]     = useState(pedido.notaEnvio || "");
+  const [saving,        setSaving]        = useState(false);
+  const [copiado,       setCopiado]       = useState(false);
+
+  // URL de seguimiento según courier
+  const getTrackingUrl = (t: string, c: string) => {
+    const cl = c.toLowerCase();
+    if (!t) return null;
+    if (cl.includes("olva"))   return `https://www.olvacourier.com/seguimiento/envios?guia=${t}`;
+    if (cl.includes("shalom")) return `https://www.shalom.com.pe/tracking/${t}`;
+    if (cl.includes("otr"))    return `https://www.otr.pe/rastreo?guia=${t}`;
+    if (cl.includes("rapidísimo") || cl.includes("rapidisimo")) return `https://www.rapidisimocourier.com/rastreo?guia=${t}`;
+    return null;
+  };
+
+  const trackingUrl = getTrackingUrl(tracking, courier);
+
+  const copiarTracking = () => {
+    if (!tracking) return;
+    navigator.clipboard.writeText(tracking);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  // Notificar al cliente (escribe en colección notificaciones)
+  const notificarCliente = async (pedidoId: string, clienteEmail: string, trackingNum: string, cour: string) => {
+    try {
+      await addDoc(collection(db, "notificaciones"), {
+        tipo:         "envio",
+        pedidoId,
+        clienteEmail,
+        trackingNumber: trackingNum,
+        courier:        cour,
+        mensaje:        `Tu pedido #${pedidoId.slice(-8).toUpperCase()} fue despachado por ${cour}. Guía: ${trackingNum}`,
+        leida:          false,
+        timestamp:      serverTimestamp(),
+      });
+    } catch { /* silencioso */ }
+  };
 
   const handleGuardarEnvio = async () => {
     if (!courier || !tracking) { alert("Completa courier y número de seguimiento"); return; }
     setSaving(true);
-    try { await onActualizarEnvio(pedido.id, tracking, courier); }
-    finally { setSaving(false); }
+    try {
+      // Actualizar pedido con todos los datos de envío
+      await updateDoc(doc(db, "pedidos", pedido.id), {
+        trackingNumber:          tracking,
+        courier,
+        guiaEnvio:               tracking,
+        transportista:           courier,
+        estado:                  "ENVIADO",
+        fechaActualizacion:      new Date(),
+        fechaEstimadaEntrega:    fechaEst ? new Date(fechaEst + "T00:00:00") : null,
+        notaEnvio:               notaEnvio,
+      });
+      // Notificar al cliente
+      await notificarCliente(pedido.id, pedido.clienteEmail, tracking, courier);
+      await onActualizarEnvio(pedido.id, tracking, courier);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -260,28 +324,109 @@ function ModalDetalle({ pedido, productos, onClose, onActualizarEnvio }: {
 
           {/* Envío */}
           <section>
-            <p style={{ margin:"0 0 10px", fontSize:11, fontWeight:800, color:C.purple, textTransform:"uppercase", letterSpacing:"0.1em" }}>Envío y Logística</p>
-            <div style={{ background:C.gray50, borderRadius:14, padding:"16px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              <div>
-                <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>Courier</label>
-                <select value={courier} onChange={e => setCourier(e.target.value)}
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:10, border:`1.5px solid ${C.gray200}`, fontSize:13, color:C.gray900, outline:"none", background:C.white }}>
-                  <option value="">Seleccionar courier</option>
-                  {COURIER_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+            <p style={{ margin:"0 0 12px", fontSize:11, fontWeight:800, color:C.purple, textTransform:"uppercase", letterSpacing:"0.1em" }}>
+              Envío y Logística
+            </p>
+
+            {/* Tracking actual si ya existe */}
+            {pedido.trackingNumber && (
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderRadius:12, background:C.greenBg, border:`1.5px solid ${C.greenBorder}`, marginBottom:14 }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:`${C.greenDark}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <Truck size={17} style={{ color:C.greenDark }} />
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ margin:0, fontSize:11, fontWeight:700, color:C.greenDark, textTransform:"uppercase" }}>Pedido ya despachado</p>
+                  <p style={{ margin:"2px 0 0", fontSize:13, fontWeight:800, color:C.gray900, fontFamily:"monospace" }}>{pedido.trackingNumber}</p>
+                  <p style={{ margin:"1px 0 0", fontSize:11, color:C.gray500 }}>{pedido.courier}</p>
+                </div>
+                <div style={{ display:"flex", gap:6 }}>
+                  <button onClick={copiarTracking}
+                    style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.white, border:`1px solid ${C.greenBorder}`, fontSize:11, fontWeight:700, color:C.greenDark, cursor:"pointer" }}>
+                    {copiado ? <CheckCircle2 size={12}/> : <Copy size={12}/>}
+                    {copiado ? "Copiado" : "Copiar"}
+                  </button>
+                  {trackingUrl && (
+                    <a href={trackingUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.greenDark, color:C.white, textDecoration:"none", fontSize:11, fontWeight:700 }}>
+                      <Navigation size={12}/> Rastrear
+                    </a>
+                  )}
+                </div>
               </div>
-              <div>
-                <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>N° Seguimiento</label>
-                <input value={tracking} onChange={e => setTracking(e.target.value)}
-                  placeholder="Ej: OLV-123456789"
-                  style={{ width:"100%", padding:"9px 12px", borderRadius:10, border:`1.5px solid ${C.gray200}`, fontSize:13, color:C.gray900, outline:"none" }}
-                />
+            )}
+
+            <div style={{ background:C.gray50, borderRadius:14, padding:"16px", display:"flex", flexDirection:"column", gap:14 }}>
+              {/* Courier + Tracking */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>Courier</label>
+                  <select value={courier} onChange={e => setCourier(e.target.value)}
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:10, border:`1.5px solid ${C.gray200}`, fontSize:13, color:C.gray900, outline:"none", background:C.white }}>
+                    <option value="">Seleccionar courier</option>
+                    {COURIER_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>N° Seguimiento / Guía</label>
+                  <div style={{ position:"relative" }}>
+                    <input value={tracking} onChange={e => setTracking(e.target.value)}
+                      placeholder="Ej: OLV-123456789"
+                      style={{ width:"100%", padding:"9px 12px", paddingRight:40, borderRadius:10, border:`1.5px solid ${tracking ? C.purple : C.gray200}`, fontSize:13, color:C.gray900, outline:"none", fontFamily:"monospace" }}
+                    />
+                    {tracking && (
+                      <button onClick={copiarTracking}
+                        style={{ position:"absolute", right:8, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:copiado ? C.greenDark : C.gray400 }}>
+                        {copiado ? <CheckCircle2 size={13}/> : <Copy size={13}/>}
+                      </button>
+                    )}
+                  </div>
+                  {/* Preview URL */}
+                  {trackingUrl && (
+                    <a href={trackingUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ display:"inline-flex", alignItems:"center", gap:4, marginTop:4, fontSize:10, color:C.purple, fontWeight:700, textDecoration:"none" }}>
+                      <ExternalLink size={10}/> Ver en sitio del courier →
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Fecha estimada + nota */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>
+                    <CalendarClock size={11} style={{ display:"inline", marginRight:4 }} />
+                    Fecha estimada de entrega
+                  </label>
+                  <input type="date" value={fechaEst} onChange={e => setFechaEst(e.target.value)}
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:10, border:`1.5px solid ${C.gray200}`, fontSize:13, color:C.gray900, outline:"none", background:C.white }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize:11, fontWeight:700, color:C.gray500, display:"block", marginBottom:6, textTransform:"uppercase" }}>
+                    Nota para el cliente (opcional)
+                  </label>
+                  <input value={notaEnvio} onChange={e => setNotaEnvio(e.target.value)}
+                    placeholder="Ej: Paquete listo para retiro en agencia"
+                    style={{ width:"100%", padding:"9px 12px", borderRadius:10, border:`1.5px solid ${C.gray200}`, fontSize:13, color:C.gray900, outline:"none", background:C.white }}
+                  />
+                </div>
+              </div>
+
+              {/* Info notificación */}
+              <div style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 12px", borderRadius:9, background:`${C.purple}08`, border:`1px solid ${C.purpleBorder}` }}>
+                <Bell size={12} style={{ color:C.purple, flexShrink:0 }} />
+                <p style={{ margin:0, fontSize:11, color:C.purple, fontWeight:600 }}>
+                  Al guardar, se notificará automáticamente al cliente con el número de guía.
+                </p>
               </div>
             </div>
+
             {(courier || tracking) && (
               <button onClick={handleGuardarEnvio} disabled={saving}
-                style={{ marginTop:10, padding:"9px 18px", borderRadius:10, background:`linear-gradient(135deg,${C.purple},${C.purpleLight})`, color:C.white, border:"none", fontSize:12, fontWeight:700, cursor:"pointer", boxShadow:`0 4px 12px ${C.purple}35` }}>
-                {saving ? "Guardando..." : "💾 Guardar datos de envío"}
+                style={{ marginTop:10, display:"flex", alignItems:"center", gap:8, padding:"10px 20px", borderRadius:10, background:`linear-gradient(135deg,${C.purple},${C.purpleLight})`, color:C.white, border:"none", fontSize:12, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 12px ${C.purple}35` }}>
+                {saving
+                  ? <><Loader2 size={14} style={{ animation:"spin .75s linear infinite" }}/>Guardando...</>
+                  : <><Send size={14}/>Guardar y notificar al cliente</>}
               </button>
             )}
           </section>
@@ -479,7 +624,9 @@ export default function GestionPedidos() {
           archived:          data.archived || false,
           historialEstados:  data.historialEstados || [],
           urgente:           data.urgente || false,
-          imeisAsignados:    data.imeisAsignados || [],
+          imeisAsignados:           data.imeisAsignados || [],
+          fechaEstimadaEntrega:     data.fechaEstimadaEntrega || null,
+          notaEnvio:                data.notaEnvio || "",
         } as Pedido;
       }));
     } catch { setError("No se pudieron cargar los pedidos."); }

@@ -534,7 +534,10 @@ export default function CarritoPage() {
 
       {/* ── Main ── */}
       <main style={{ maxWidth:1280, margin:"0 auto", padding:"28px 16px" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:24 }} className="lg:grid-cols-[1fr_420px]">
+        <style>{`
+          @media (min-width: 1024px) { .checkout-grid { grid-template-columns: 1fr 420px !important; } }
+        `}</style>
+        <div className="checkout-grid" style={{ display:"grid", gridTemplateColumns:"1fr", gap:24 }}>
 
           {/* ══ COLUMNA IZQUIERDA ══ */}
           <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
@@ -864,7 +867,7 @@ export default function CarritoPage() {
           </div>
 
           {/* ══ COLUMNA DERECHA ══ */}
-          <div style={{ position:"sticky", top:80, alignSelf:"start", display:"flex", flexDirection:"column", gap:16 }}>
+          <div style={{ position:"sticky", top:76, alignSelf:"start", display:"flex", flexDirection:"column", gap:16 }}>
 
             {/* Resumen IGV */}
             <div style={{ borderRadius:18, padding:22, border:`1px solid ${C.gray200}`, background:C.white, boxShadow:`0 2px 12px rgba(0,0,0,0.04)` }}>
