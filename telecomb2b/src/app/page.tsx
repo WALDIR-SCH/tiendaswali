@@ -1,812 +1,492 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+// src/app/page.tsx
+
+import { useState } from "react";
 import Link from "next/link";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { 
-  ShieldCheck, Zap, Globe, PackageCheck, 
-  Server, Router, Cable, BarChart3, Clock,
-  Cpu, HardDrive, Wifi, ArrowRight, 
-  Truck, Award, Users, Target, 
-  CheckCircle, Database, Cloud, Shield,
-  LogIn, ShoppingCart, X, RefreshCw, Circle,
-  Clock as ClockIcon, Shield as ShieldIcon, CheckCircle as CheckIcon,
-  Globe as GlobeIcon, TrendingUp, Headphones
+import {
+  ShoppingCart, ArrowRight, Star, Shield,
+  Truck, Headphones, Zap, Award, CheckCircle,
+  Heart, Cpu, Battery, Camera, Lock,
+  Tag, Percent, Gift, Clock,
 } from "lucide-react";
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
+const V = "#7c3aed";
+const O = "#FF6600";
+const Y = "#F6FA00";
+const G = "#28FB4B";
+
+const brands = [
+  { name:"Apple",    logo:"https://logo.clearbit.com/apple.com",           bg:"#f8f9fa" },
+  { name:"Samsung",  logo:"https://logo.clearbit.com/samsung.com",         bg:"#eff6ff" },
+  { name:"Xiaomi",   logo:"https://logo.clearbit.com/xiaomi.com",          bg:"#fff1f2" },
+  { name:"Motorola", logo:"https://logo.clearbit.com/motorola.com",        bg:"#f0fdf4" },
+  { name:"Huawei",   logo:"https://logo.clearbit.com/huawei.com",          bg:"#fff7ed" },
+  { name:"OPPO",     logo:"https://logo.clearbit.com/oppo.com",            bg:"#fdf4ff" },
+  { name:"Nokia",    logo:"https://logo.clearbit.com/nokia.com",           bg:"#eff6ff" },
+  { name:"OnePlus",  logo:"https://logo.clearbit.com/oneplus.com",         bg:"#fff1f2" },
+  { name:"Realme",   logo:"https://logo.clearbit.com/realme.com",          bg:"#fff7ed" },
+  { name:"Vivo",     logo:"https://logo.clearbit.com/vivo.com",            bg:"#f5f3ff" },
+  { name:"Honor",    logo:"https://logo.clearbit.com/honor.com",           bg:"#f0fdf4" },
+  { name:"Asus",     logo:"https://logo.clearbit.com/asus.com",            bg:"#fdf4ff" },
+  { name:"Google",   logo:"https://logo.clearbit.com/google.com",          bg:"#eff6ff" },
+  { name:"Infinix",  logo:"https://logo.clearbit.com/infinixmobility.com", bg:"#fff1f2" },
+  { name:"Tecno",    logo:"https://logo.clearbit.com/tecno-mobile.com",    bg:"#f0fdf4" },
+  { name:"RedMagic", logo:"https://logo.clearbit.com/nubia.com",           bg:"#fff1f2" },
+];
+
+const promoProducts = [
+  { id:1, name:"iPhone 15 Pro Max",       brand:"Apple",    price:"S/ 4,299", oldPrice:"S/ 4,599",
+    badge:"⭐ Más Vendido", badgeColor:V, tag:"Gama Alta",  tagColor:V,
+    image:"https://images.unsplash.com/photo-1695048133142-1a20484d2569?auto=format&fit=crop&q=80&w=600",
+    rating:4.9, specs:["A17 Pro","256GB","48MP","Titanio"], discount:"-7%" },
+  { id:2, name:"Samsung Galaxy S24 Ultra",brand:"Samsung",  price:"S/ 3,899", oldPrice:null,
+    badge:"🔥 Nuevo",       badgeColor:O, tag:"Gama Alta",  tagColor:V,
+    image:"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&q=80&w=600",
+    rating:4.8, specs:["SD 8 Gen 3","12GB RAM","200MP","S-Pen"], discount:null },
+  { id:3, name:"Xiaomi Redmi Note 13",    brand:"Xiaomi",   price:"S/ 599",   oldPrice:"S/ 699",
+    badge:"💚 Mejor Precio",badgeColor:"#16a34a",tag:"Gama Baja", tagColor:"#16a34a",
+    image:"https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&q=80&w=600",
+    rating:4.3, specs:["SD 685","8GB RAM","108MP","33W"], discount:"-14%" },
+  { id:4, name:"Motorola Edge 40",        brand:"Motorola", price:"S/ 1,299", oldPrice:"S/ 1,499",
+    badge:"🧡 Oferta",      badgeColor:O, tag:"Gama Media", tagColor:O,
+    image:"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600",
+    rating:4.5, specs:["Dimensity 8020","8GB RAM","144Hz","68W"], discount:"-13%" },
+  { id:5, name:"Google Pixel 8 Pro",      brand:"Google",   price:"S/ 3,499", oldPrice:null,
+    badge:"✨ Premium",     badgeColor:V, tag:"Gama Alta",  tagColor:V,
+    image:"https://images.unsplash.com/photo-1598327105666-5b89351aff97?auto=format&fit=crop&q=80&w=600",
+    rating:4.7, specs:["Tensor G3","12GB RAM","50MP","IA Google"], discount:null },
+  { id:6, name:"Samsung Galaxy A55",      brand:"Samsung",  price:"S/ 999",   oldPrice:null,
+    badge:"🔶 Popular",     badgeColor:O, tag:"Gama Media", tagColor:O,
+    image:"https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&q=80&w=600",
+    rating:4.4, specs:["Exynos 1480","8GB RAM","50MP","5000mAh"], discount:null },
+];
+
+// ─── BRAND CAROUSEL ───────────────────────────────────────────────────────────
+function BrandCarousel() {
+  const doubled = [...brands, ...brands];
+  const BCard = ({ b, k }: { b: typeof brands[0]; k: string }) => (
+    <div key={k}
+      className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 hover:border-violet-300 hover:shadow-lg transition-all duration-300 cursor-pointer shrink-0 group"
+      style={{ width:"130px", height:"96px", background: b.bg, padding:"14px" }}>
+      <div className="flex items-center justify-center h-10 w-full mb-1">
+        <img src={b.logo} alt={b.name}
+          className="max-h-9 w-auto object-contain opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+          onError={e=>{
+            const el=e.target as HTMLImageElement;
+            el.style.display="none";
+            const sp=document.createElement("span");
+            sp.style.cssText=`font-size:11px;font-weight:900;color:${V};`;
+            sp.textContent=b.name;
+            el.parentElement?.appendChild(sp);
+          }}
+        />
+      </div>
+      <span className="text-[10px] font-bold text-gray-500 group-hover:text-violet-600 transition-colors text-center">{b.name}</span>
+    </div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{background:"linear-gradient(90deg,#f9fafb,transparent)"}}/>
+        <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{background:"linear-gradient(-90deg,#f9fafb,transparent)"}}/>
+        <div className="flex gap-4 brand-rail-1" style={{width:"max-content"}}>
+          {doubled.map((b,i)=><BCard key={`r1-${i}`} b={b} k={`r1-${i}`}/>)}
+        </div>
+      </div>
+      <div className="relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{background:"linear-gradient(90deg,#f9fafb,transparent)"}}/>
+        <div className="absolute right-0 top-0 bottom-0 w-20 z-10 pointer-events-none" style={{background:"linear-gradient(-90deg,#f9fafb,transparent)"}}/>
+        <div className="flex gap-4 brand-rail-2" style={{width:"max-content"}}>
+          {[...brands].reverse().concat([...brands].reverse()).map((b,i)=><BCard key={`r2-${i}`} b={b} k={`r2-${i}`}/>)}
+        </div>
+      </div>
+      <style>{`
+        .brand-rail-1{animation:scroll-left 30s linear infinite;}
+        .brand-rail-1:hover{animation-play-state:paused;}
+        .brand-rail-2{animation:scroll-right 35s linear infinite;}
+        .brand-rail-2:hover{animation-play-state:paused;}
+        @keyframes scroll-left{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+        @keyframes scroll-right{0%{transform:translateX(-50%);}100%{transform:translateX(0);}}
+      `}</style>
+    </div>
+  );
 }
 
-export default function HomePage() {
-  const backgroundRef = useRef(null);
-  const mainRef = useRef(null);
-  const statsRef = useRef(null);
-  const [showLoginAlert, setShowLoginAlert] = useState(false);
-  const circleCarouselRef = useRef<HTMLDivElement>(null);
-  const [rotation, setRotation] = useState(0);
-
-  const handleCatalogClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowLoginAlert(true);
-  };
-
-  useEffect(() => {
-    // Animación de fondo con movimiento de mouse
-    const handleMouseMove = (e: MouseEvent) => {
-      const { clientX, clientY } = e;
-      const xPos = (clientX / window.innerWidth - 0.5) * 10;
-      const yPos = (clientY / window.innerHeight - 0.5) * 10;
-      gsap.to(backgroundRef.current, { x: xPos, y: yPos, duration: 1.5, ease: "power2.out" });
-    };
-
-    // Animación de carrusel circular rotativo
-    if (typeof window !== "undefined" && circleCarouselRef.current) {
-      // Crear animación de rotación continua
-      gsap.to(circleCarouselRef.current, {
-        rotation: 360,
-        duration: 40,
-        ease: "none",
-        repeat: -1,
-        onUpdate: function() {
-          setRotation(this.progress() * 360);
-        }
-      });
-
-      // Animar elementos individuales para contrarrestar rotación
-      const brandItems = circleCarouselRef.current.querySelectorAll('.brand-circle-item');
-      brandItems.forEach((item, index) => {
-        gsap.to(item, {
-          rotation: -360,
-          duration: 40,
-          ease: "none",
-          repeat: -1
-        });
-      });
-    }
-
-    // Animación de stats counter
-    if (statsRef.current) {
-      gsap.from(".stat-number", {
-        textContent: 0,
-        duration: 2,
-        ease: "power2.out",
-        snap: { textContent: 1 },
-        stagger: 0.5,
-        scrollTrigger: {
-          trigger: statsRef.current,
-          start: "top 80%",
-        }
-      });
-    }
-
-    // Animaciones de revelado
-    const ctx = gsap.context(() => {
-      gsap.utils.toArray(".reveal").forEach((elem: any) => {
-        gsap.fromTo(elem, 
-          { opacity: 0, y: 30 },
-          { 
-            opacity: 1, 
-            y: 0, 
-            duration: 0.8, 
-            ease: "power3.out",
-            scrollTrigger: {
-              trigger: elem,
-              start: "top 85%",
-              toggleActions: "play none none reverse"
-            }
-          }
-        );
-      });
-    }, mainRef);
-
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      ctx.revert();
-    };
-  }, []);
-
-  const brands = [
-    { name: "CISCO", logo: "https://upload.wikimedia.org/wikipedia/commons/0/08/Cisco_logo_blue_2016.svg", color: "from-blue-600 to-blue-800" },
-    { name: "HUAWEI", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4e/Huawei_logo.svg", color: "from-red-500 to-red-700" },
-    { name: "UBIQUITI", logo: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Ubiquiti_Networks_logo.svg", color: "from-gray-700 to-gray-900" },
-    { name: "MIKROTIK", logo: "https://upload.wikimedia.org/wikipedia/commons/9/95/MikroTik_logo.svg", color: "from-red-400 to-red-600" },
-    { name: "FURUKAWA", logo: "https://www.furukawalatam.com/wp-content/uploads/2021/06/logo.svg", color: "from-blue-400 to-cyan-600" },
-    { name: "TP-LINK", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/TP-Link_logo.svg/1280px-TP-Link_logo.svg.png", color: "from-blue-500 to-indigo-600" },
-    { name: "D-LINK", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/D-Link_logo.svg/1280px-D-Link_logo.svg.png", color: "from-blue-400 to-blue-600" },
-    { name: "COMMSCOPE", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Commscope_logo.svg/1280px-Commscope_logo.svg.png", color: "from-purple-500 to-purple-700" },
-    { name: "ERICSSON", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Ericsson_logo_2009.svg/1280px-Ericsson_logo_2009.svg.png", color: "from-blue-700 to-blue-900" },
-    { name: "NOKIA", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/Nokia_logo_2016.svg/1280px-Nokia_logo_2016.svg.png", color: "from-blue-600 to-blue-800" },
-    { name: "JUNIPER", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Juniper_Networks_Logo.svg/1280px-Juniper_Networks_Logo.svg.png", color: "from-gray-800 to-black" },
-    { name: "PANDUIT", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Panduit_logo.svg/1280px-Panduit_logo.svg.png", color: "from-blue-700 to-blue-900" },
-  ];
-
-  // Posicionar marcas en un círculo
-  const radius = 280; // Radio del círculo
-  const centerX = 320; // Centro X
-  const centerY = 320; // Centro Y
-  const totalBrands = brands.length;
-  const angleStep = (2 * Math.PI) / totalBrands;
-
+// ─── PROMO CARD ───────────────────────────────────────────────────────────────
+function PromoCard({ p }: { p: typeof promoProducts[0] }) {
+  const [liked, setLiked] = useState(false);
   return (
-    <div ref={mainRef} className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white font-['Inter'] overflow-x-hidden">
-      
-      {/* Alert de inicio de sesión */}
-      {showLoginAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xl">
-          <div className="bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-8 animate-scale-in border border-gray-700">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-500/20 backdrop-blur-sm rounded-lg">
-                  <LogIn className="w-6 h-6 text-blue-400" />
-                </div>
-                <h3 className="text-xl font-bold text-white">Acceso Requerido</h3>
-              </div>
-              <button 
-                onClick={() => setShowLoginAlert(false)}
-                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors backdrop-blur-sm"
-              >
-                <X className="w-5 h-5 text-gray-400" />
-              </button>
-            </div>
-            
-            <p className="text-gray-300 mb-8">
-              Para acceder a nuestro catálogo completo y precios especiales, es necesario iniciar sesión con una cuenta empresarial.
-            </p>
-            
-            <div className="space-y-4">
-              <Link 
-                href="/login"
-                className="block w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-xl text-center hover:shadow-lg hover:shadow-blue-500/30 transition-all backdrop-blur-sm"
-              >
-                Iniciar Sesión
-              </Link>
-              <Link 
-                href="/register"
-                className="block w-full py-3 border-2 border-blue-500/50 text-blue-400 font-semibold rounded-xl text-center hover:bg-blue-500/10 transition-colors backdrop-blur-sm"
-              >
-                Crear Cuenta Empresarial
-              </Link>
-            </div>
-            
-            <p className="text-sm text-gray-400 mt-6 text-center">
-              ¿Necesitas ayuda? <Link href="/contact" className="text-blue-400 hover:text-blue-300 hover:underline">Contáctanos</Link>
-            </p>
-          </div>
+    <div className="group relative bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-violet-200 hover:shadow-xl hover:shadow-violet-100/50 transition-all duration-300 flex flex-col">
+      <div className="absolute top-3 left-3 z-20 flex flex-col gap-1">
+        <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white" style={{background:p.badgeColor}}>{p.badge}</span>
+        {p.discount&&<span className="text-xs font-black px-2.5 py-1 rounded-full text-white" style={{background:"#dc2626"}}>{p.discount}</span>}
+      </div>
+      <button onClick={()=>setLiked(l=>!l)} className="absolute top-3 right-3 z-20 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center hover:scale-110 transition-transform">
+        <Heart className={`w-4 h-4 ${liked?"fill-red-500 text-red-500":"text-gray-300"}`}/>
+      </button>
+      <div className="relative overflow-hidden bg-gray-50 h-52">
+        <img src={p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+        <Link href="/login" className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{background:"rgba(124,58,237,0.88)"}}>
+          <div className="text-center text-white"><Lock className="w-6 h-6 mx-auto mb-1"/><p className="text-sm font-black">Ver precio real</p><p className="text-xs opacity-80">Inicia sesión</p></div>
+        </Link>
+      </div>
+      <div className="p-5 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{background:p.tagColor}}>{p.tag}</span>
+          <span className="text-xs text-gray-400 font-medium">{p.brand}</span>
         </div>
-      )}
-
-      {/* --- SECCIÓN 1: HERO PROFESIONAL --- */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden px-6">
-        {/* Fondo con efecto vidrio esmerilado */}
-        <div className="absolute inset-0 z-0">
-          {/* Textura de vidrio esmerilado */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.03)_0%,_transparent_70%)]" />
-          {/* Patrón sutil de puntos */}
-          <div className="absolute inset-0 opacity-[0.02]" style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)`,
-            backgroundSize: '40px 40px'
-          }} />
-          {/* Gradiente oscuro */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-900/90 via-gray-800/90 to-gray-900/90 backdrop-blur-sm" />
-          
-          {/* Elementos decorativos */}
-          <div 
-            ref={backgroundRef}
-            className="absolute inset-0 opacity-5"
-            style={{
-              backgroundImage: `radial-gradient(circle at 30% 20%, rgba(37, 99, 235, 0.3) 0%, transparent 50%),
-                               radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%)`,
-            }}
-          />
+        <h3 className="font-black text-gray-900 text-base mb-2 leading-tight">{p.name}</h3>
+        <div className="flex flex-wrap gap-1 mb-3">
+          {p.specs.map(s=><span key={s} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{s}</span>)}
         </div>
-
-        <div className="relative z-10 text-center max-w-6xl mx-auto">
-          {/* Badge de profesionalismo */}
-          <div className="mb-8 inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-400/30 rounded-full backdrop-blur-xl">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-            <span className="text-blue-300 text-sm font-bold uppercase tracking-[0.2em]">
-              Proveedor Certificado Nivel Carrier
-            </span>
-            <Award className="w-4 h-4 text-blue-400" />
+        <div className="flex items-center gap-1 mb-4">
+          {[...Array(5)].map((_,i)=><Star key={i} className={`w-3.5 h-3.5 ${i<Math.floor(p.rating)?"fill-yellow-400 text-yellow-400":"text-gray-200"}`}/>)}
+          <span className="text-xs text-gray-400 ml-1">{p.rating}</span>
+        </div>
+        <div className="mt-auto">
+          <div className="flex items-baseline gap-2 mb-3">
+            <span className="text-xl font-black" style={{color:V}}>{p.price}</span>
+            {p.oldPrice&&<span className="text-sm text-gray-400 line-through">{p.oldPrice}</span>}
+            <span className="text-xs text-gray-400 flex items-center gap-0.5 ml-auto"><Lock className="w-3 h-3"/>ref.</span>
           </div>
+          <Link href="/login" className="w-full py-2.5 font-bold rounded-xl flex items-center justify-center gap-2 text-sm text-white hover:opacity-90 transition-all" style={{background:`linear-gradient(135deg,${V},${O})`}}>
+            <Lock className="w-4 h-4"/> Ver precio completo
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          {/* Título principal con efecto neón */}
-          <div className="relative mb-8">
-            <div className="absolute inset-0 -inset-8 bg-gradient-to-r from-blue-600/10 via-cyan-500/10 to-blue-600/10 blur-3xl opacity-20" />
-            <h1 className="relative text-6xl md:text-8xl lg:text-8xl font-black mb-6 tracking-tighter leading-[0.9]">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-300 via-blue-100 to-cyan-300 drop-shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-                TELECOM
+// ─── PAGE ─────────────────────────────────────────────────────────────────────
+export default function HomePage() {
+  return (
+    <div className="min-h-screen bg-white">
+
+      {/* ══ HERO ════════════════════════════════════════════════════════════ */}
+      <section className="relative overflow-hidden bg-white">
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full opacity-[0.05]" style={{background:V}}/>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-2 gap-10 items-center py-12 md:py-20">
+
+          {/* Izquierda — texto */}
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 border" style={{background:"#f5f3ff",borderColor:"#ddd6fe"}}>
+              <Zap className="w-4 h-4" style={{color:V}}/>
+              <span className="text-sm font-bold" style={{color:V}}>Envío gratis en pedidos +S/ 500</span>
+            </div>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black text-gray-900 leading-[1.0] mb-6">
+              El mejor{" "}
+              <span className="relative inline-block">
+                <span style={{color:V}}>celular</span>
+                <svg className="absolute -bottom-1 left-0 w-full" viewBox="0 0 200 8" fill="none">
+                  <path d="M2 6 Q100 2 198 6" stroke={Y} strokeWidth="3.5" strokeLinecap="round"/>
+                </svg>
               </span>
-              <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-blue-500 drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]">
-                SUPPLY CHAIN
-              </span>
+              <br/>al mejor precio
             </h1>
-          </div>
-
-          {/* Subtítulo */}
-          <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto font-light tracking-wide mb-10 leading-relaxed">
-            Plataforma B2B especializada en distribución estratégica de 
-            <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400"> accesorios y materiales de telecomunicaciones</span> 
-            para operadores, ISPs y proyectos de infraestructura crítica.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-12">
-            <button 
-              onClick={handleCatalogClick}
-              className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl text-white font-bold text-lg uppercase tracking-wider flex items-center gap-3 hover:shadow-2xl hover:shadow-blue-500/40 transition-all duration-300 transform hover:-translate-y-1 backdrop-blur-sm"
-            >
-              <ShoppingCart className="w-5 h-5" />
-              Explorar Catálogo
-              <ArrowRight className="group-hover:translate-x-2 transition-transform" size={20} />
-            </button>
-            <Link 
-              href="/register"
-              className="px-8 py-4 bg-gray-800/50 backdrop-blur-sm border-2 border-blue-500/50 text-blue-300 font-bold text-lg uppercase tracking-wider rounded-xl hover:bg-gray-700/50 hover:border-blue-400 transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Solicitar Cuenta Empresarial
-            </Link>
-          </div>
-        </div>
-
-        {/* Indicador scroll */}
-        <div className="absolute bottom-10 flex flex-col items-center gap-3 opacity-80">
-          <span className="text-xs font-medium uppercase tracking-widest text-blue-400">Desplazar</span>
-          <div className="w-6 h-10 border-2 border-blue-500/30 rounded-full flex justify-center backdrop-blur-sm">
-            <div className="w-1 h-3 bg-blue-400 rounded-full mt-2 animate-bounce" />
-          </div>
-        </div>
-      </section>
-
-      {/* --- SECCIÓN 2: CARRUSEL CIRCULAR ROTATIVO --- */}
-      <section className="py-24 bg-gradient-to-b from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-sm border-y border-gray-700/30">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16 reveal">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-              Ecosistema de <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">Marcas Globales</span>
-            </h2>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto mb-6">
-              Distribuimos exclusivamente equipamiento de los <span className="font-semibold text-cyan-300">fabricantes líderes</span> a nivel mundial en telecomunicaciones
+            <p className="text-gray-500 text-lg mb-8 max-w-lg leading-relaxed">
+              Encuentra tu smartphone ideal — gama alta, media y baja. Más de{" "}
+              <strong className="text-gray-800">16 marcas líderes</strong>, garantía oficial y envíos a todo el Perú.
             </p>
-            
-            <div className="inline-flex items-center gap-3 px-6 py-3 bg-gray-800/50 backdrop-blur-sm rounded-full border border-gray-700">
-              <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
-              <span className="text-blue-300 font-medium">Carrusel Rotativo 360°</span>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm text-gray-400">Activo</span>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-4 mb-10">
+              <Link href="/login" className="px-8 py-4 font-black text-lg rounded-2xl flex items-center justify-center gap-3 transition-all hover:shadow-lg hover:shadow-violet-200 hover:-translate-y-0.5 text-white" style={{background:V}}>
+                <ShoppingCart className="w-5 h-5"/> Ver Catálogo
+              </Link>
+              <a href="#marcas" className="px-8 py-4 border-2 border-gray-200 hover:border-violet-300 text-gray-700 font-bold text-lg rounded-2xl flex items-center justify-center gap-3 transition-all hover:-translate-y-0.5">
+                Ver Marcas <ArrowRight className="w-5 h-5"/>
+              </a>
             </div>
-          </div>
-
-          {/* Contenedor principal del carrusel circular */}
-          <div className="relative h-[700px] md:h-[800px] flex items-center justify-center">
-            
-            {/* Líneas de conexión radiales */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              {[...Array(12)].map((_, i) => (
-                <div 
-                  key={`line-${i}`}
-                  className="absolute w-[1px] h-64 bg-gradient-to-b from-blue-400/10 to-transparent"
-                  style={{
-                    transform: `rotate(${i * 30}deg)`,
-                    transformOrigin: 'center center'
-                  }}
-                />
+            <div className="flex flex-wrap items-center gap-6 pt-6 border-t border-gray-100">
+              {[
+                {icon:<Shield className="w-4 h-4" style={{color:G}}/>, text:"Garantía oficial"},
+                {icon:<Truck  className="w-4 h-4" style={{color:O}}/>, text:"Envío rápido"},
+                {icon:<Award  className="w-4 h-4" style={{color:V}}/>, text:"16+ marcas"},
+              ].map(b=>(
+                <div key={b.text} className="flex items-center gap-2 text-sm text-gray-600 font-medium">{b.icon}{b.text}</div>
               ))}
             </div>
-            
-            {/* Anillos concéntricos decorativos */}
-            <div className="absolute w-96 h-96 border border-blue-400/10 rounded-full backdrop-blur-sm" />
-            <div className="absolute w-[500px] h-[500px] border border-blue-300/5 rounded-full backdrop-blur-sm" />
-            <div className="absolute w-[600px] h-[600px] border border-blue-200/5 rounded-full backdrop-blur-sm" />
-            
-            {/* Punto central con efecto de pulso */}
-            <div className="absolute z-20">
-              <div className="relative">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full shadow-2xl backdrop-blur-sm" />
-                <div className="absolute inset-0 w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full animate-ping opacity-20" />
-                <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-full blur-xl" />
-              </div>
-            </div>
-            
-            {/* Carrusel circular con rotación */}
-            <div 
-              ref={circleCarouselRef}
-              className="relative w-[640px] h-[640px] z-10"
-            >
-              {/* Mostrar todas las marcas en posiciones circulares */}
-              {brands.map((brand, index) => {
-                const angle = index * angleStep;
-                const x = centerX + radius * Math.cos(angle);
-                const y = centerY + radius * Math.sin(angle);
-                
-                return (
-                  <div
-                    key={brand.name}
-                    className="brand-circle-item absolute w-32 h-32 -ml-16 -mt-16"
-                    style={{
-                      left: `${x}px`,
-                      top: `${y}px`,
-                      transform: `rotate(${rotation}deg)`,
-                    }}
-                  >
-                    <div className="group relative w-full h-full">
-                      {/* Efecto de órbita */}
-                      <div className="absolute -inset-4">
-                        <div className="w-40 h-40 border border-blue-400/10 rounded-full group-hover:border-blue-400/30 transition-all duration-500 backdrop-blur-sm" />
-                      </div>
-                      
-                      {/* Tarjeta de marca */}
-                      <div className={`
-                        absolute inset-0 bg-gray-800/80 backdrop-blur-xl rounded-2xl border border-gray-700/50
-                        shadow-xl group-hover:shadow-2xl group-hover:scale-110 
-                        group-hover:border-blue-400/30 transition-all duration-500
-                        flex flex-col items-center justify-center p-4
-                      `}>
-                        {/* Fondo de gradiente sutil */}
-                        <div className={`absolute inset-0 bg-gradient-to-br ${brand.color}/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-                        
-                        {/* Logo de la marca */}
-                        <div className="relative z-10 flex flex-col items-center">
-                          {brand.logo ? (
-                            <div className="mb-3 p-2 bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg">
-                              <img 
-                                src={brand.logo} 
-                                alt={brand.name}
-                                className="h-8 w-auto object-contain opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).parentElement!.innerHTML = 
-                                    `<span class="text-sm font-bold text-blue-300">${brand.name}</span>`;
-                                }}
-                              />
-                            </div>
-                          ) : (
-                            <div className="mb-3 p-2 bg-gray-900/50 backdrop-blur-sm rounded-xl shadow-lg">
-                              <span className="text-sm font-bold text-blue-300">{brand.name}</span>
-                            </div>
-                          )}
-                          
-                          <span className="text-sm font-semibold text-white text-center">
-                            {brand.name}
-                          </span>
-                          
-                          {/* Punto indicador de posición */}
-                          <div className="absolute -bottom-6">
-                            <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            {/* Indicador de rotación */}
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-gray-800/80 backdrop-blur-xl border border-gray-700/50 rounded-full px-6 py-3 shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full animate-pulse" />
-                  <span className="text-sm font-medium text-white">
-                    Rotación: {Math.round(rotation)}°
-                  </span>
-                </div>
-                <div className="w-px h-4 bg-gray-600" />
-                <div className="text-xs text-gray-400">
-                  {brands.length} marcas en órbita
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* SE REEMPLAZA LA SECCIÓN ANTERIOR POR ALGO MÁS IMPORTANTE */}
-          {/* SECCIÓN: SERVICIOS DE VALOR AGREGADO */}
-          <div className="mt-24 reveal">
-            <div className="text-center mb-12">
-              <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Servicios Exclusivos</span> para Empresas
-              </h3>
-              <p className="text-gray-300 text-lg max-w-3xl mx-auto">
-                Más que un distribuidor, somos tu <span className="font-semibold text-cyan-300">socio estratégico</span> en telecomunicaciones
-              </p>
+          {/* Derecha — SOLO la imagen portada.jpg, limpia, sin overlay ni texto */}
+          <div className="relative flex items-center justify-center">
+            {/* Blob decorativo detrás */}
+            <div className="absolute w-80 h-80 rounded-full opacity-10 pointer-events-none"
+              style={{background:`radial-gradient(circle,${V},transparent)`}}/>
+
+            {/* Imagen portada — completamente limpia */}
+            <div className="relative z-10 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl shadow-violet-100">
+              <img
+                src="/images/portada.jpg"
+                alt="Mundo Móvil"
+                className="w-full h-auto block"
+                style={{ maxHeight: "460px", objectFit: "cover" }}
+                onError={e=>{
+                  (e.target as HTMLImageElement).src =
+                    "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&q=80&w=700";
+                }}
+              />
             </div>
-            
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8 hover:border-blue-500/30 hover:transform hover:-translate-y-2 transition-all duration-500">
-                <div className="inline-flex p-3 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 rounded-xl mb-6">
-                  <Headphones className="w-8 h-8 text-blue-400" />
-                </div>
-                <h4 className="text-xl font-bold text-white mb-4">Soporte Técnico 24/7</h4>
-                <p className="text-gray-300 mb-4">
-                  Equipo especializado disponible las 24 horas para resolver emergencias técnicas y operativas.
-                </p>
-                <ul className="space-y-2">
-                  {['Respuesta en menos de 30min', 'Técnicos certificados', 'Soporte remoto y presencial', 'Monitoreo proactivo'].map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-gray-400">
-                      <CheckIcon className="w-4 h-4 text-green-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+
+            {/* Chips flotantes externos a la imagen */}
+            {/* <div className="absolute -top-3 -right-3 z-20 bg-white rounded-2xl shadow-lg px-3 py-2.5 border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:"#dcfce7"}}>
+                <Truck className="w-4 h-4" style={{color:"#16a34a"}}/>
               </div>
-              
-              <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8 hover:border-blue-500/30 hover:transform hover:-translate-y-2 transition-all duration-500">
-                <div className="inline-flex p-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-xl mb-6">
-                  <TrendingUp className="w-8 h-8 text-purple-400" />
-                </div>
-                <h4 className="text-xl font-bold text-white mb-4">Consultoría Estratégica</h4>
-                <p className="text-gray-300 mb-4">
-                  Análisis y optimización de tu infraestructura de telecomunicaciones para maximizar ROI.
-                </p>
-                <ul className="space-y-2">
-                  {['Auditoría técnica completa', 'Roadmap tecnológico', 'Optimización de costos', 'Plan de migración'].map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-gray-400">
-                      <CheckIcon className="w-4 h-4 text-green-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+              <div><p className="text-xs font-black text-gray-900">Envío Gratis</p><p className="text-[10px] text-gray-400">24-48 horas</p></div>
+            </div> */}
+
+            {/* <div className="absolute -bottom-3 -left-3 z-20 bg-white rounded-2xl shadow-lg px-3 py-2.5 border border-gray-100 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:"#ede9fe"}}>
+                <Award className="w-4 h-4" style={{color:V}}/>
               </div>
-              
-              <div className="bg-gray-800/50 backdrop-blur-xl rounded-2xl border border-gray-700/50 p-8 hover:border-blue-500/30 hover:transform hover:-translate-y-2 transition-all duration-500">
-                <div className="inline-flex p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl mb-6">
-                  <ShieldIcon className="w-8 h-8 text-green-400" />
-                </div>
-                <h4 className="text-xl font-bold text-white mb-4">Garantías Extendidas</h4>
-                <p className="text-gray-300 mb-4">
-                  Cobertura de garantía superior a la estándar del fabricante con reemplazo inmediato.
-                </p>
-                <ul className="space-y-2">
-                  {['Hasta 5 años de garantía', 'Reemplazo en 24 horas', 'Soporte de fabricante directo', 'Certificación original'].map((item) => (
-                    <li key={item} className="flex items-center gap-2 text-sm text-gray-400">
-                      <CheckIcon className="w-4 h-4 text-green-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            
-            {/* CTA para servicios */}
-            <div className="mt-12 text-center">
-              <Link 
-                href="/services"
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600/30 to-cyan-500/30 border border-blue-500/30 text-blue-300 font-bold rounded-xl hover:bg-gradient-to-r hover:from-blue-600/40 hover:to-cyan-500/40 transition-all backdrop-blur-sm"
-              >
-                <GlobeIcon className="w-5 h-5" />
-                Conoce todos nuestros servicios empresariales
-                <ArrowRight className="w-5 h-5" />
+              <div><p className="text-xs font-black text-gray-900">+16 Marcas</p><p className="text-[10px] text-gray-400">Garantía oficial</p></div>
+            </div> */}
+          </div>
+        </div>
+
+        {/* Gama pills */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12">
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              {label:"Gama Alta",  desc:"Desde S/ 2,000", bg:V,        icon:<Cpu     className="w-5 h-5 text-white"/>},
+              {label:"Gama Media", desc:"Desde S/ 800",   bg:O,        icon:<Battery className="w-5 h-5 text-white"/>},
+              {label:"Gama Baja",  desc:"Desde S/ 300",   bg:"#16a34a",icon:<Camera  className="w-5 h-5 text-white"/>},
+            ].map(r=>(
+              <Link key={r.label} href="/login" className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-white border-2 border-gray-100 hover:border-violet-200 rounded-2xl hover:shadow-md transition-all group">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform" style={{background:r.bg}}>{r.icon}</div>
+                <div><p className="font-bold text-gray-900 text-sm">{r.label}</p><p className="text-xs text-gray-400">{r.desc}</p></div>
               </Link>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* --- SECCIÓN 3: ESTADÍSTICAS IMPACTANTES --- */}
-      <section ref={statsRef} className="py-24 bg-gradient-to-r from-gray-800/50 via-gray-700/50 to-gray-800/50 backdrop-blur-sm border-y border-gray-700/30">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16 reveal">
-            <h3 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              Cifras que <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Respaldan</span> Nuestra Experiencia
-            </h3>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-              Datos reales que demuestran nuestro compromiso con la excelencia en distribución B2B
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <StatCard 
-              icon={<Users className="w-8 h-8 text-blue-400" />}
-              number="500+"
-              label="Clientes Empresariales"
-              description="Operadores y ISPs confían en nosotros"
-            />
-            <StatCard 
-              icon={<Database className="w-8 h-8 text-cyan-400" />}
-              number="10,000+"
-              label="SKUs Disponibles"
-              description="Stock permanente garantizado"
-            />
-            <StatCard 
-              icon={<Truck className="w-8 h-8 text-green-400" />}
-              number="24h"
-              label="Tiempo de Despacho"
-              description="Envíos urgentes nacionales"
-            />
-            <StatCard 
-              icon={<Shield className="w-8 h-8 text-purple-400" />}
-              number="100%"
-              label="Garantía Original"
-              description="Productos certificados y homologados"
-            />
-          </div>
-          
-          {/* Aseguramiento de calidad */}
-          <div className="mt-16 grid md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30">
-              <div className="inline-flex p-3 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-full mb-4">
-                <CheckIcon className="w-6 h-6 text-green-500" />
-              </div>
-              <h4 className="text-lg font-bold text-white mb-2">Certificación ISO 9001</h4>
-              <p className="text-gray-400 text-sm">Gestión de calidad certificada internacionalmente</p>
-            </div>
-            <div className="text-center p-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30">
-              <div className="inline-flex p-3 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-full mb-4">
-                <Award className="w-6 h-6 text-yellow-500" />
-              </div>
-              <h4 className="text-lg font-bold text-white mb-2">Partner de Fabricantes</h4>
-              <p className="text-gray-400 text-sm">Certificación directa de los principales fabricantes</p>
-            </div>
-            <div className="text-center p-6 bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/30">
-              <div className="inline-flex p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full mb-4">
-                <ShieldCheck className="w-6 h-6 text-purple-400" />
-              </div>
-              <h4 className="text-lg font-bold text-white mb-2">Trazabilidad Completa</h4>
-              <p className="text-gray-400 text-sm">Seguimiento de origen a destino de todos los productos</p>
-            </div>
-          </div>
+      {/* ══ MARCAS — CARRUSEL DOBLE ANIMADO ═════════════════════════════════ */}
+      <section id="marcas" className="py-16 bg-gray-50 border-y border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-10 text-center">
+          <h2 className="text-3xl font-black text-gray-900 mb-2">Marcas <span style={{color:V}}>Oficiales</span></h2>
+          <p className="text-gray-400 text-sm">Distribuidores autorizados de las mejores marcas del mundo</p>
         </div>
+        <BrandCarousel/>
       </section>
 
-      {/* --- SECCIÓN 4: CATEGORÍAS PRINCIPALES --- */}
-      <section className="py-24 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-20 reveal">
-          <h2 className="text-5xl font-bold mb-6 text-white">
-            Soluciones <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">Integrales</span>
-          </h2>
-          <p className="text-gray-300 text-xl max-w-3xl mx-auto">
-            Desde componentes pasivos hasta equipamiento activo de <span className="font-semibold text-cyan-300">última generación</span>
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <CategoryCard 
-            title="Fibra Óptica"
-            description="Cables ADSS, OPGW, conectores y empalmes"
-            icon={<Cable className="w-8 h-8 text-white" />}
-            color="from-cyan-500 to-blue-600"
-            image="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?auto=format&fit=crop&q=80&w=1200"
-            onClick={handleCatalogClick}
-          />
-          <CategoryCard 
-            title="Networking"
-            description="Routers, switches, OLTs y equipos carrier"
-            icon={<Router className="w-8 h-8 text-white" />}
-            color="from-blue-500 to-purple-600"
-            image="https://images.unsplash.com/photo-1558494949-ef010cbdcc48?auto=format&fit=crop&q=80&w=1200"
-            onClick={handleCatalogClick}
-          />
-          <CategoryCard 
-            title="Infraestructura"
-            description="Racks, gabinetes, UPS y sistemas de energía"
-            icon={<Server className="w-8 h-8 text-white" />}
-            color="from-purple-500 to-indigo-600"
-            image="https://images.unsplash.com/photo-1563770660941-20978e870e26?auto=format&fit=crop&q=80&w=1200"
-            onClick={handleCatalogClick}
-          />
-          <CategoryCard 
-            title="Wireless"
-            description="Antenas, radios, puntos de acceso y backhaul"
-            icon={<Wifi className="w-8 h-8 text-white" />}
-            color="from-pink-500 to-red-600"
-            image="https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&q=80&w=1200"
-            onClick={handleCatalogClick}
-          />
-        </div>
-      </section>
-
-      {/* --- SECCIÓN 5: VENTAJAS COMPETITIVAS --- */}
-      <section className="py-24 bg-gradient-to-br from-gray-900/50 via-gray-800/50 to-gray-900/50 backdrop-blur-sm border-y border-gray-700/30">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="reveal">
-              <h2 className="text-5xl font-bold mb-8 text-white">
-                Por qué elegir <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.3)]">TelecomB2B</span>
-              </h2>
-              
-              <div className="space-y-6">
-                <AdvantageItem 
-                  icon={<Target className="w-6 h-6 text-blue-400" />}
-                  title="Enfoque B2B Exclusivo"
-                  description="Diseñado específicamente para las necesidades de empresas y operadores"
-                />
-                <AdvantageItem 
-                  icon={<BarChart3 className="w-6 h-6 text-cyan-400" />}
-                  title="Consultoría Técnica"
-                  description="Asesoramiento especializado para optimizar tus proyectos"
-                />
-                <AdvantageItem 
-                  icon={<PackageCheck className="w-6 h-6 text-green-400" />}
-                  title="Logística Predictiva"
-                  description="Sistema de pronóstico para mantener stock crítico"
-                />
-                <AdvantageItem 
-                  icon={<Cloud className="w-6 h-6 text-purple-400" />}
-                  title="Plataforma Digital"
-                  description="Gestión completa de pedidos, facturas y seguimiento online"
-                />
-              </div>
+      {/* ══ PRODUCTOS PUBLICITARIOS ══════════════════════════════════════════ */}
+      <section id="productos" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 border" style={{background:"#f5f3ff",borderColor:"#ddd6fe"}}>
+              <Lock className="w-4 h-4" style={{color:V}}/>
+              <span className="text-sm font-bold" style={{color:V}}>Inicia sesión para ver precios reales y comprar</span>
             </div>
-
-            <div className="relative reveal">
-              <div className="relative h-[600px] rounded-3xl overflow-hidden border-2 border-gray-700/50 shadow-2xl">
-                <img 
-                  src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=1200"
-                  alt="Centro de Distribución"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 via-transparent to-transparent" />
-                
-                {/* Overlay con datos */}
-                <div className="absolute bottom-0 left-0 right-0 p-8">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                      <Truck className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">Distribución Nacional</h3>
-                      <p className="text-gray-300">Cobertura en todas las regiones</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-4xl font-black text-gray-900 mb-2">Nuestros <span style={{color:V}}>Celulares</span></h2>
+            <p className="text-gray-400 text-sm max-w-lg mx-auto">Equipos disponibles en catálogo. Regístrate para ver precios exclusivos.</p>
           </div>
-        </div>
-      </section>
-
-      {/* --- SECCIÓN 6: CTA FINAL --- */}
-      <section className="py-32 px-6 text-center relative overflow-hidden">
-        {/* Fondo vidrio esmerilado */}
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 via-gray-800/80 to-gray-900/80 backdrop-blur-xl" />
-        {/* Textura sutil */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.1) 1px, transparent 0)`,
-          backgroundSize: '50px 50px'
-        }} />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(255,255,255,0.05)_0%,_transparent_70%)]" />
-        
-        <div className="relative z-10 max-w-4xl mx-auto reveal">
-          <h2 className="text-5xl md:text-6xl font-bold mb-8 text-white drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-            Transforma tu <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]">Infraestructura</span>
-          </h2>
-          
-          <p className="text-2xl text-gray-300 mb-12 leading-relaxed">
-            Únete a la plataforma B2B líder en distribución de telecomunicaciones. 
-            Accede a <span className="font-semibold text-cyan-300">precios especiales</span>, <span className="font-semibold text-blue-300">stock garantizado</span> y <span className="font-semibold text-green-300">soporte técnico especializado</span>.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <button 
-              onClick={handleCatalogClick}
-              className="group px-12 py-5 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl text-white font-bold text-xl uppercase tracking-wider flex items-center gap-4 hover:shadow-2xl hover:shadow-blue-500/40 transition-all duration-300 transform hover:-translate-y-2 shadow-2xl backdrop-blur-sm"
-            >
-              Explorar Catálogo Completo
-              <ArrowRight className="group-hover:translate-x-3 transition-transform" size={24} />
-            </button>
-            
-            <Link 
-              href="/contact"
-              className="px-12 py-5 bg-gray-800/50 backdrop-blur-sm border-2 border-blue-500/50 text-blue-300 font-bold text-xl uppercase tracking-wider rounded-2xl hover:bg-gray-700/50 hover:border-blue-400 transition-all duration-300 shadow-2xl hover:shadow-xl"
-            >
-              Contactar Ventas
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {promoProducts.map(p=><PromoCard key={p.id} p={p}/>)}
+          </div>
+          <div className="text-center mt-12">
+            <Link href="/login" className="inline-flex items-center gap-3 px-8 py-4 font-bold rounded-2xl text-white hover:opacity-90 hover:-translate-y-0.5 transition-all" style={{background:`linear-gradient(135deg,${V},${O})`}}>
+              <Lock className="w-5 h-5"/> Ver catálogo completo — Regístrate gratis <ArrowRight className="w-5 h-5"/>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* --- FOOTER PROFESIONAL --- */}
-      <footer className="py-16 border-t border-gray-700/30 bg-gray-900/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-12 mb-12">
-            <div>
-              <div className="flex items-center gap-3 mb-6">
-                <Zap className="w-8 h-8 text-blue-400" />
-                <span className="text-2xl font-bold text-white drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]">TELECOM<span className="text-blue-400">B2B</span></span>
+      {/* ══ BANNER PROMO ═════════════════════════════════════════════════════ */}
+      <section className="py-16 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          {/* Banner principal */}
+          <div className="relative rounded-3xl overflow-hidden min-h-[280px] flex items-center"
+            style={{background:`linear-gradient(135deg,${V} 0%,#5b21b6 50%,#4c1d95 100%)`}}>
+            <img src="https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&q=80&w=1400"
+              alt="Oferta gama alta" className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-luminosity"/>
+            <div className="absolute top-0 right-0 w-72 h-72 rounded-full opacity-10" style={{background:"rgba(255,255,255,0.3)",transform:"translate(30%,-30%)"}}/>
+            <div className="relative z-10 grid md:grid-cols-2 w-full">
+              <div className="p-10 md:p-14 flex flex-col justify-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full w-fit mb-5" style={{background:"rgba(255,255,255,0.15)"}}>
+                  <Zap className="w-3.5 h-3.5 text-white"/>
+                  <span className="text-white text-xs font-bold">Oferta especial — Tiempo limitado</span>
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-white mb-3 leading-tight">
+                  Hasta <span style={{color:Y}}>30% OFF</span><br/>en Gama Alta
+                </h2>
+                <p className="text-violet-200 mb-8 leading-relaxed">Accede a precios exclusivos solo para usuarios registrados.</p>
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/register" className="px-7 py-3.5 font-black rounded-xl hover:scale-105 hover:shadow-lg text-violet-900 text-base transition-all" style={{background:Y}}>Registrarme gratis</Link>
+                  <Link href="/login" className="px-7 py-3.5 border-2 text-white font-bold rounded-xl hover:bg-white/10 transition-all text-base" style={{borderColor:"rgba(255,255,255,0.4)"}}>Ya tengo cuenta</Link>
+                </div>
+                <div className="flex gap-4 mt-6">
+                  {[{icon:<Shield className="w-4 h-4"/>,text:"Garantía oficial"},{icon:<Truck className="w-4 h-4"/>,text:"Envío gratis"},{icon:<Clock className="w-4 h-4"/>,text:"Oferta 48h"}].map(b=>(
+                    <div key={b.text} className="flex items-center gap-1.5 text-violet-200 text-xs font-medium">{b.icon}{b.text}</div>
+                  ))}
+                </div>
               </div>
-              <p className="text-gray-400 text-sm">
-                Plataforma especializada en distribución B2B de accesorios y materiales de telecomunicaciones.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-bold mb-6 text-white">Categorías</h4>
-              <ul className="space-y-3">
-                {['Fibra Óptica', 'Networking', 'Wireless', 'Infraestructura', 'Herramientas', 'Consumibles'].map((item) => (
-                  <li key={item}>
-                    <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors hover:pl-2 duration-300">{item}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-bold mb-6 text-white">Empresa</h4>
-              <ul className="space-y-3">
-                {['Sobre Nosotros', 'Certificaciones', 'Sostenibilidad', 'Trabaja con Nosotros', 'Blog Técnico'].map((item) => (
-                  <li key={item}>
-                    <a href="#" className="text-gray-400 hover:text-blue-400 transition-colors hover:pl-2 duration-300">{item}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-bold mb-6 text-white">Contacto</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li className="hover:text-blue-400 transition-colors">ventas@telecomb2b.com</li>
-                <li className="hover:text-blue-400 transition-colors">+1 (555) 123-4567</li>
-                <li className="hover:text-blue-400 transition-colors">Lunes a Viernes 8:00 - 18:00</li>
-              </ul>
+              <div className="relative hidden md:flex items-center justify-end pr-10">
+                <img src="https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?auto=format&fit=crop&q=80&w=600"
+                  alt="Smartphones gama alta" className="rounded-2xl shadow-2xl max-h-64 w-auto object-cover border-2 border-white/20"/>
+                <div className="absolute bottom-6 right-6 bg-white rounded-2xl p-4 shadow-2xl">
+                  <p className="text-xs text-gray-400 font-medium mb-0.5">Ahorro promedio</p>
+                  <p className="text-2xl font-black" style={{color:V}}>S/ 800</p>
+                  <div className="flex items-center gap-1 mt-1"><div className="w-1.5 h-1.5 rounded-full bg-green-500"/><span className="text-[10px] text-green-600 font-bold">En stock</span></div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="pt-8 border-t border-gray-700/30 text-center">
-            <p className="text-gray-500 text-sm">
-              © 2024 TelecomB2B. Todos los derechos reservados. | 
-              <span className="mx-2 text-gray-400">Proveedor Certificado</span> |
-              <span className="mx-2 text-gray-400">Socio Estratégico de Operadores</span>
-            </p>
+          {/* Banners secundarios */}
+          <div className="grid md:grid-cols-3 gap-4">
+            {[
+              {src:"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600",tag:"Gama Media",tc:O,title:"Desde S/ 800",sub:"Motorola, Samsung A, Realme"},
+              {src:"https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&q=80&w=600",tag:"Gama Baja",tc:"#16a34a",title:"Desde S/ 300",sub:"Xiaomi, Infinix, Tecno"},
+              {src:"https://images.unsplash.com/photo-1593642632559-0c6d3fc62b89?auto=format&fit=crop&q=80&w=600",tag:"Nuevos Lanzamientos",tc:V,title:"Últimos modelos",sub:"iPhone 15, S24, Pixel 8"},
+            ].map(b=>(
+              <div key={b.tag} className="relative rounded-2xl overflow-hidden min-h-[160px] flex items-end p-5 cursor-pointer group">
+                <img src={b.src} alt={b.tag} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                <div className="absolute inset-0" style={{background:"linear-gradient(to top,rgba(0,0,0,0.8),transparent)"}}/>
+                <div className="relative z-10 w-full">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full text-white mb-2 inline-block" style={{background:b.tc}}>{b.tag}</span>
+                  <p className="text-white font-black text-lg leading-tight">{b.title}<br/><span className="text-sm font-medium opacity-80">{b.sub}</span></p>
+                  <Link href="/login" className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-bold text-white hover:gap-2.5 transition-all">Ver más <ArrowRight className="w-3.5 h-3.5"/></Link>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Beneficios */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {icon:<Percent    className="w-5 h-5"/>,bg:"#f5f3ff",color:V,        title:"Precios exclusivos",  sub:"Solo para registrados"},
+              {icon:<Gift       className="w-5 h-5"/>,bg:"#fff7ed",color:O,        title:"Regalo en tu 1ra compra",sub:"Accesorios gratis"},
+              {icon:<Truck      className="w-5 h-5"/>,bg:"#f0fdf4",color:"#16a34a",title:"Envío express gratis", sub:"Pedidos +S/ 500"},
+              {icon:<Tag        className="w-5 h-5"/>,bg:"#fdf4ff",color:"#9333ea",title:"Cupón bienvenida",     sub:"10% OFF primer pedido"},
+            ].map(b=>(
+              <div key={b.title} className="flex items-center gap-3 p-4 rounded-2xl border border-gray-100 hover:border-violet-200 hover:shadow-md transition-all bg-white">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{background:b.bg,color:b.color}}>{b.icon}</div>
+                <div><p className="text-sm font-black text-gray-900">{b.title}</p><p className="text-xs text-gray-400">{b.sub}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ SERVICIOS ════════════════════════════════════════════════════════ */}
+      <section id="servicios" className="py-20 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-14">
+            <h2 className="text-4xl font-black text-gray-900 mb-3">¿Por qué elegir <span style={{color:V}}>Mundo Móvil</span>?</h2>
+            <p className="text-gray-400 max-w-xl mx-auto text-sm">Tu tienda de confianza con las mejores garantías</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              {icon:<Shield     className="w-7 h-7"/>,bg:"bg-violet-100 text-violet-600",title:"Garantía Oficial",  desc:"Garantía oficial del fabricante en todos los equipos."},
+              {icon:<Truck      className="w-7 h-7"/>,bg:"bg-orange-100 text-orange-500",title:"Envío Express",      desc:"Entrega en 24-48h a todo el Perú con seguimiento."},
+              {icon:<Award      className="w-7 h-7"/>,bg:"bg-green-100 text-green-600",  title:"30 días devolución", desc:"Devolución sin preguntas si no estás satisfecho."},
+              {icon:<Headphones className="w-7 h-7"/>,bg:"bg-yellow-100 text-yellow-600",title:"Soporte 24/7",       desc:"Equipo disponible para ayudarte en cualquier momento."},
+            ].map(s=>(
+              <div key={s.title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-violet-200 hover:shadow-lg transition-all group">
+                <div className={`w-14 h-14 ${s.bg} rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>{s.icon}</div>
+                <h3 className="font-black text-gray-900 text-base mb-2">{s.title}</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ STATS ════════════════════════════════════════════════════════════ */}
+      <section className="py-16 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {[
+              {number:"16+",    label:"Marcas oficiales",     color:V},
+              {number:"5,000+", label:"Clientes satisfechos", color:O},
+              {number:"98%",    label:"Satisfacción",         color:"#16a34a"},
+              {number:"24h",    label:"Envío express",        color:V},
+            ].map(s=>(
+              <div key={s.label} className="text-center p-6 rounded-2xl border border-gray-100 hover:border-violet-100 hover:shadow-md transition-all">
+                <div className="text-4xl font-black mb-2" style={{color:s.color}}>{s.number}</div>
+                <p className="text-gray-500 text-sm font-medium">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ CTA FINAL ════════════════════════════════════════════════════════ */}
+      <section className="py-20 px-4 sm:px-6 bg-gray-50 border-t border-gray-100">
+        <div className="max-w-3xl mx-auto text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6 border" style={{background:"#f5f3ff",borderColor:"#ddd6fe"}}>
+            <CheckCircle className="w-4 h-4" style={{color:V}}/>
+            <span className="text-sm font-bold" style={{color:V}}>Únete a miles de clientes felices</span>
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6 leading-tight">
+            Tu próximo celular<br/><span style={{color:V}}>te está esperando</span>
+          </h2>
+          <p className="text-gray-400 text-lg mb-10 leading-relaxed">
+            Crea tu cuenta gratuita y accede a precios exclusivos, ofertas anticipadas y envíos gratis en tu primera compra.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/register" className="px-10 py-4 font-black text-lg rounded-2xl transition-all hover:-translate-y-1 flex items-center justify-center gap-3 text-white hover:opacity-90" style={{background:V}}>
+              Crear cuenta gratis <ArrowRight className="w-5 h-5"/>
+            </Link>
+            <Link href="/login" className="px-10 py-4 border-2 border-gray-200 hover:border-violet-300 text-gray-700 font-bold text-lg rounded-2xl transition-all hover:-translate-y-1 flex items-center justify-center gap-3">
+              Ya tengo cuenta
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ FOOTER ═══════════════════════════════════════════════════════════ */}
+      <footer className="bg-gray-900 text-white py-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+            <div>
+              <div className="flex items-center gap-2.5 mb-4">
+                <img src="/images/icono.ico" alt="Mundo Móvil" style={{width:"36px",height:"36px",objectFit:"contain"}}
+                  onError={e=>(e.target as HTMLImageElement).style.display="none"}/>
+                <span className="text-xl font-black">Mundo <span style={{color:"#a78bfa"}}>Móvil</span></span>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">Tu tienda de smartphones de confianza. 16 marcas oficiales, garantía real y los mejores precios del Perú.</p>
+            </div>
+            <div>
+              <h4 className="font-black mb-5 text-sm uppercase tracking-wider text-gray-300">Categorías</h4>
+              <ul className="space-y-2.5">
+                {["Gama Alta","Gama Media","Gama Baja","Accesorios","Ofertas"].map(i=>(
+                  <li key={i}><Link href="/login" className="text-gray-400 hover:text-violet-400 transition-colors text-sm">{i}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-black mb-5 text-sm uppercase tracking-wider text-gray-300">Marcas</h4>
+              <ul className="space-y-2.5">
+                {["Apple","Samsung","Xiaomi","Motorola","OPPO"].map(i=>(
+                  <li key={i}><Link href="/login" className="text-gray-400 hover:text-violet-400 transition-colors text-sm">{i}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-black mb-5 text-sm uppercase tracking-wider text-gray-300">Cuenta</h4>
+              <ul className="space-y-2.5">
+                {[{l:"Iniciar Sesión",h:"/login"},{l:"Registrarse",h:"/register"},{l:"Mis Pedidos",h:"/opciones/pedidos"},{l:"Contacto",h:"/contact"}].map(i=>(
+                  <li key={i.l}><Link href={i.h} className="text-gray-400 hover:text-violet-400 transition-colors text-sm">{i.l}</Link></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="pt-8 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-gray-500 text-xs">© 2025 Mundo Móvil. Todos los derechos reservados.</p>
+            <div className="flex gap-4">
+              {[{bg:"#16a34a",l:"Gama Baja"},{bg:O,l:"Gama Media"},{bg:V,l:"Gama Alta"}].map(d=>(
+                <span key={d.l} className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-2 h-2 rounded-full inline-block" style={{background:d.bg}}/>{d.l}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-// Componentes auxiliares
-function StatCard({ icon, number, label, description }: any) {
-  return (
-    <div className="text-center p-8 bg-gray-800/50 backdrop-blur-xl rounded-3xl border border-gray-700/50 hover:border-blue-500/30 hover:shadow-2xl transition-all duration-300 reveal group">
-      <div className="inline-flex p-4 bg-gradient-to-br from-gray-900/50 to-gray-800/50 rounded-2xl mb-6 shadow-lg backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-        {icon}
-      </div>
-      <div className="text-4xl font-bold text-white mb-2 stat-number bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-400">{number}</div>
-      <h3 className="text-lg font-bold text-white mb-2">{label}</h3>
-      <p className="text-gray-400 text-sm">{description}</p>
-    </div>
-  );
-}
-
-function CategoryCard({ title, description, icon, color, image, onClick }: any) {
-  return (
-    <div className="group relative h-96 rounded-3xl overflow-hidden reveal cursor-pointer" onClick={onClick}>
-      <img 
-        src={image}
-        alt={title}
-        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/70 to-transparent" />
-      
-      <div className="absolute bottom-0 left-0 right-0 p-8">
-        <div className={`inline-flex p-3 bg-gradient-to-r ${color} rounded-xl mb-4 shadow-2xl backdrop-blur-sm group-hover:scale-110 transition-transform duration-300`}>
-          {icon}
-        </div>
-        <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-cyan-300 transition-colors duration-300">{title}</h3>
-        <p className="text-gray-200 mb-4 group-hover:text-gray-100 transition-colors duration-300">{description}</p>
-        <button className="inline-flex items-center gap-2 text-cyan-300 font-medium hover:text-cyan-200 transition-colors group-hover:gap-3 duration-300">
-          Explorar productos
-          <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function AdvantageItem({ icon, title, description }: any) {
-  return (
-    <div className="flex gap-4 p-4 bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 rounded-2xl hover:border-blue-500/30 hover:shadow-lg transition-all hover:-translate-y-1 duration-300">
-      <div className="flex-shrink-0">
-        {icon}
-      </div>
-      <div>
-        <h4 className="text-lg font-bold text-white mb-1">{title}</h4>
-        <p className="text-gray-300">{description}</p>
-      </div>
     </div>
   );
 }
