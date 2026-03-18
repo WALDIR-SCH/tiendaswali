@@ -153,7 +153,7 @@ export default function LoginPage() {
               OPCIÓN B — Si usas una URL externa, pon la URL directamente en src.
           ─────────────────────────────────────── */}
           <Image
-            src="/images/login-hero.jpg"
+            src="/images/xd.png"
             alt="Tiendas Waly B2B"
             fill
             sizes="45vw"
