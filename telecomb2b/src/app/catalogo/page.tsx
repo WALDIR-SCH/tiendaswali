@@ -9,7 +9,7 @@ import {
   Download, Share2, QrCode, FileText, AlertCircle,
   ChevronDown, Star, Clock, Award, Grid,
   TrendingUp, Layers, Zap, ShieldCheck, Box, X,
-  Loader2, RefreshCw
+  Loader2, RefreshCw, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
@@ -28,17 +28,22 @@ const C = {
 const CATEGORIAS = ["Todos", "Gama Alta", "Gama Media", "Gama Baja"];
 
 const CATEG_INFO: Record<string, { icon: any; desc: string; color: string }> = {
-  "Todos":      { icon: Grid,      desc: "Todo el catálogo",      color: C.purpleDark },
-  "Gama Alta":  { icon: Star,      desc: "Premium · Flagship",    color: C.orange     },
-  "Gama Media": { icon: Award,     desc: "Balance precio/calidad", color: C.purple     },
-  "Gama Baja":  { icon: Package,   desc: "Accesibles · Masivos",  color: C.green      },
+  "Todos":      { icon: Grid,    desc: "Todo el catálogo",       color: C.purpleDark },
+  "Gama Alta":  { icon: Star,    desc: "Premium · Flagship",     color: C.orange     },
+  "Gama Media": { icon: Award,   desc: "Balance precio/calidad", color: C.purple     },
+  "Gama Baja":  { icon: Package, desc: "Accesibles · Masivos",   color: C.green      },
 };
 
-const fmtPEN = (n: number) => `S/ ${(n || 0).toLocaleString("es-PE", { minimumFractionDigits:0, maximumFractionDigits:0 })}`;
+const fmtPEN = (n: number) =>
+  `S/ ${(n || 0).toLocaleString("es-PE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+/* ─── PAGINACIÓN ─── */
+const POR_PAGINA = 12;
 
 /* ─── SKELETON ─── */
 const Skeleton = ({ i }: { i: number }) => (
-  <div className="rounded-2xl overflow-hidden animate-pulse" style={{ animationDelay: `${i * 60}ms`, border: `1px solid ${C.gray200}`, background: C.gray100 }}>
+  <div className="rounded-2xl overflow-hidden animate-pulse"
+    style={{ animationDelay: `${i * 60}ms`, border: `1px solid ${C.gray200}`, background: C.gray100 }}>
     <div className="h-48 w-full" style={{ background: C.gray200 }} />
     <div className="p-4 space-y-2.5">
       <div className="h-2.5 rounded-full w-1/3" style={{ background: C.gray200 }} />
@@ -79,11 +84,11 @@ const ProductoCard = ({
   onQR: (p: any) => void; onWhatsApp: (p: any) => void;
   navigating: boolean;
 }) => {
-  const precio     = prod.precio_mostrar || 0;
-  const precioUnit = prod.precio_unitario || 0;
-  const stockCajas = prod.stock_cajas || 0;
+  const precio        = prod.precio_mostrar || 0;
+  const precioUnit    = prod.precio_unitario || 0;
+  const stockCajas    = prod.stock_cajas || 0;
   const stockUnidades = prod.stock_unidades || stockCajas * (prod.unidades_por_caja || 1);
-  const disponible = stockCajas > 0;
+  const disponible    = stockCajas > 0;
 
   return (
     <div className="group relative cursor-pointer rounded-2xl overflow-hidden border-2 transition-all duration-300 bg-white"
@@ -91,16 +96,15 @@ const ProductoCard = ({
       onClick={() => onNavigate(prod.id)}
       onMouseEnter={e => {
         (e.currentTarget as HTMLElement).style.borderColor = `${C.purpleDark}50`;
-        (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 36px ${C.purpleDark}15`;
+        (e.currentTarget as HTMLElement).style.transform   = "translateY(-3px)";
+        (e.currentTarget as HTMLElement).style.boxShadow  = `0 12px 36px ${C.purpleDark}15`;
       }}
       onMouseLeave={e => {
         (e.currentTarget as HTMLElement).style.borderColor = C.gray200;
-        (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLElement).style.transform   = "translateY(0)";
+        (e.currentTarget as HTMLElement).style.boxShadow  = "none";
       }}>
 
-      {/* Overlay loading */}
       {navigating && (
         <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl"
           style={{ background: "rgba(255,255,255,0.9)" }}>
@@ -108,7 +112,6 @@ const ProductoCard = ({
         </div>
       )}
 
-      {/* Imagen */}
       <div className="relative overflow-hidden" style={{ height: 200, background: C.gray100 }}>
         {prod.imagen_principal ? (
           <img src={prod.imagen_principal} alt={prod.nombre_producto}
@@ -119,7 +122,6 @@ const ProductoCard = ({
           </div>
         )}
 
-        {/* Badges imagen */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
           {prod.destacado && (
             <span className="text-[9px] font-black px-2 py-0.5 rounded-full text-black flex items-center gap-0.5"
@@ -141,37 +143,31 @@ const ProductoCard = ({
           )}
         </div>
 
-        {/* Stock badge top right */}
         <div className="absolute top-2.5 right-2.5">
           <StockBadge cajas={stockCajas} unidades={stockUnidades} udsPorCaja={prod.unidades_por_caja || 1} />
         </div>
 
-        {/* Acciones hover */}
         <div className="absolute bottom-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200">
           <button onClick={e => { e.stopPropagation(); onQR(prod); }}
             className="w-8 h-8 rounded-xl flex items-center justify-center bg-white border shadow-sm"
-            style={{ borderColor: `${C.purpleDark}30` }}
-            title="QR">
+            style={{ borderColor: `${C.purpleDark}30` }} title="QR">
             <QrCode size={14} style={{ color: C.purpleDark }} />
           </button>
           <button onClick={e => { e.stopPropagation(); onWhatsApp(prod); }}
             className="w-8 h-8 rounded-xl flex items-center justify-center bg-white border shadow-sm"
-            style={{ borderColor: "#22c55e30" }}
-            title="WhatsApp">
+            style={{ borderColor: "#22c55e30" }} title="WhatsApp">
             <Share2 size={14} style={{ color: "#16a34a" }} />
           </button>
           {prod.documento_ficha && (
             <a href={prod.documento_ficha} target="_blank" rel="noopener noreferrer"
               onClick={e => e.stopPropagation()}
               className="w-8 h-8 rounded-xl flex items-center justify-center bg-white border shadow-sm"
-              style={{ borderColor: `${C.orange}30` }}
-              title="Ficha PDF">
+              style={{ borderColor: `${C.orange}30` }} title="Ficha PDF">
               <FileText size={14} style={{ color: C.orange }} />
             </a>
           )}
         </div>
 
-        {/* Entrega badge */}
         <div className="absolute bottom-2.5 left-2.5">
           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5"
             style={{ background: disponible ? "#fffbeb" : C.gray100, color: disponible ? "#b45309" : C.gray500, border: `1px solid ${disponible ? "#fde68a" : C.gray200}` }}>
@@ -180,7 +176,6 @@ const ProductoCard = ({
         </div>
       </div>
 
-      {/* Info */}
       <div className="p-4">
         <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.orange }}>
           {prod.marca} · {prod.categoria_id}
@@ -189,7 +184,6 @@ const ProductoCard = ({
           {prod.nombre_producto}
         </h3>
 
-        {/* Specs chips */}
         <div className="flex flex-wrap gap-1 mb-3">
           {prod.capacidad_almacenamiento && (
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background: C.gray900 }}>
@@ -208,11 +202,8 @@ const ProductoCard = ({
           )}
         </div>
 
-        {/* Descripción corta */}
         {prod.descripcion_corta ? (
-          <p className="text-[11px] text-gray-500 leading-relaxed mb-3 line-clamp-2">
-            {prod.descripcion_corta}
-          </p>
+          <p className="text-[11px] text-gray-500 leading-relaxed mb-3 line-clamp-2">{prod.descripcion_corta}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {prod.sistema_operativo && (
@@ -236,7 +227,6 @@ const ProductoCard = ({
           </div>
         )}
 
-        {/* Precios */}
         <div className="space-y-1 mb-3">
           <div className="flex items-baseline justify-between">
             <div>
@@ -262,7 +252,6 @@ const ProductoCard = ({
           </p>
         </div>
 
-        {/* Rating */}
         {(prod.total_resenas || 0) > 0 && (
           <div className="flex items-center gap-1 mb-3">
             <div className="flex">
@@ -275,12 +264,9 @@ const ProductoCard = ({
           </div>
         )}
 
-        {/* CTA */}
         <button className="w-full py-2.5 rounded-xl text-xs font-black text-white transition-all"
           style={{
-            background: disponible
-              ? `linear-gradient(135deg,${C.purpleDark},${C.purple})`
-              : C.gray400,
+            background: disponible ? `linear-gradient(135deg,${C.purpleDark},${C.purple})` : C.gray400,
             boxShadow: disponible ? `0 4px 14px ${C.purpleDark}35` : "none",
           }}>
           {disponible ? "Ver producto →" : "Sin stock"}
@@ -294,27 +280,30 @@ const ProductoCard = ({
    PÁGINA PRINCIPAL CATÁLOGO
 ═══════════════════════════════════════ */
 export default function CatalogoPage() {
-  const router         = useRouter();
-  const { language }   = useLanguage();
+  const router       = useRouter();
+  const { language } = useLanguage();
 
-  const [productos,    setProductos]    = useState<any[]>([]);
-  const [filtrados,    setFiltrados]    = useState<any[]>([]);
-  const [categoria,    setCategoria]    = useState("Todos");
-  const [busqueda,     setBusqueda]     = useState("");
-  const [busquedaSku,  setBusquedaSku]  = useState("");
-  const [marcasSel,    setMarcasSel]    = useState<string[]>([]);
-  const [rangoPrecio,  setRangoPrecio]  = useState<[number, number]>([0, 999999]);
-  const [soloDisp,     setSoloDisp]     = useState(false);
-  const [soloDest,     setSoloDest]     = useState(false);
-  const [soloOferta,   setSoloOferta]   = useState(false);
-  const [showFiltros,  setShowFiltros]  = useState(false);
-  const [loading,      setLoading]      = useState(true);
-  const [scrollTop,    setScrollTop]    = useState(false);
-  const [navId,        setNavId]        = useState<string | null>(null);
-  const [qrModal,      setQrModal]      = useState<{ show: boolean; url: string; prod: any }>({ show: false, url: "", prod: null });
-  const [categDrop,    setCategDrop]    = useState(false);
-  const searchRef                        = useRef<HTMLDivElement>(null);
-  const categRef                         = useRef<HTMLDivElement>(null);
+  const [productos,   setProductos]   = useState<any[]>([]);
+  const [filtrados,   setFiltrados]   = useState<any[]>([]);
+  const [categoria,   setCategoria]   = useState("Todos");
+  const [busqueda,    setBusqueda]    = useState("");
+  const [busquedaSku, setBusquedaSku] = useState("");
+  const [marcasSel,   setMarcasSel]   = useState<string[]>([]);
+  const [rangoPrecio, setRangoPrecio] = useState<[number, number]>([0, 999999]);
+  const [soloDisp,    setSoloDisp]    = useState(false);
+  const [soloDest,    setSoloDest]    = useState(false);
+  const [soloOferta,  setSoloOferta]  = useState(false);
+  const [showFiltros, setShowFiltros] = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [scrollTop,   setScrollTop]   = useState(false);
+  const [navId,       setNavId]       = useState<string | null>(null);
+  const [qrModal,     setQrModal]     = useState<{ show: boolean; url: string; prod: any }>({ show: false, url: "", prod: null });
+  const [categDrop,   setCategDrop]   = useState(false);
+
+  // ── PAGINACIÓN ──────────────────────────────────────────────────────────────
+  const [paginaActual, setPaginaActual] = useState(1);
+
+  const categRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -356,11 +345,11 @@ export default function CatalogoPage() {
           .map(d => ({ id: d.id, ...d.data() }))
           .filter((p: any) => p.estado === "Activo")
           .map((p: any) => {
-            const stockCajas    = Number(p.stock_cajas)      || 0;
-            const udsPorCaja    = Number(p.unidades_por_caja) || 1;
+            const stockCajas    = Number(p.stock_cajas)       || 0;
+            const udsPorCaja    = Number(p.unidades_por_caja)  || 1;
             const stockUnidades = p.stock_unidades !== undefined ? Number(p.stock_unidades) : stockCajas * udsPorCaja;
-            const precioCaja    = Number(p.precio_caja)       || 0;
-            const precioUnit    = Number(p.precio_unitario)   || 0;
+            const precioCaja    = Number(p.precio_caja)        || 0;
+            const precioUnit    = Number(p.precio_unitario)    || 0;
             const precioMostrar = p.en_oferta && p.precio_oferta_caja ? Number(p.precio_oferta_caja) : precioCaja;
             return {
               ...p,
@@ -405,7 +394,19 @@ export default function CatalogoPage() {
     if (soloDest)   f = f.filter((p: any) => p.destacado);
     if (soloOferta) f = f.filter((p: any) => p.en_oferta || p.en_oferta_unidad);
     setFiltrados(f);
+    // Resetear a página 1 cuando cambian filtros
+    setPaginaActual(1);
   }, [categoria, busqueda, busquedaSku, marcasSel, rangoPrecio, soloDisp, soloDest, soloOferta, productos]);
+
+  // ── Calcular página actual ───────────────────────────────────────────────────
+  const totalPaginas    = Math.ceil(filtrados.length / POR_PAGINA);
+  const inicio          = (paginaActual - 1) * POR_PAGINA;
+  const productosPagina = filtrados.slice(inicio, inicio + POR_PAGINA);
+
+  const irAPagina = (n: number) => {
+    setPaginaActual(n);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const filtrosActivos = marcasSel.length + (soloDisp?1:0) + (soloDest?1:0) + (soloOferta?1:0) + (busquedaSku?1:0);
 
@@ -413,6 +414,7 @@ export default function CatalogoPage() {
     setCategoria("Todos"); setBusqueda(""); setBusquedaSku("");
     setMarcasSel([]); setRangoPrecio([0, 999999]);
     setSoloDisp(false); setSoloDest(false); setSoloOferta(false);
+    setPaginaActual(1);
   };
 
   const navegar = useCallback(async (id: string) => {
@@ -422,10 +424,9 @@ export default function CatalogoPage() {
     finally { setTimeout(() => setNavId(null), 2000); }
   }, [router]);
 
-  /* ── Stats del catálogo ── */
   const statsDisp = useMemo(() => ({
-    disponibles: productos.filter(p => p.stock_cajas > 0).length,
-    totalCajas:  productos.reduce((a, p) => a + (p.stock_cajas || 0), 0),
+    disponibles:   productos.filter(p => p.stock_cajas > 0).length,
+    totalCajas:    productos.reduce((a, p) => a + (p.stock_cajas    || 0), 0),
     totalUnidades: productos.reduce((a, p) => a + (p.stock_unidades || 0), 0),
   }), [productos]);
 
@@ -444,57 +445,19 @@ export default function CatalogoPage() {
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
 
-        {/* ══ BANNER PROMOCIONAL ══ */}
-        <div className="relative overflow-hidden rounded-2xl mb-8 cursor-pointer group"
-          style={{ background: `linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%)` }}>
-          {/* Orbs decorativos */}
-          <div className="absolute -top-10 -left-10 w-56 h-56 rounded-full blur-[80px] pointer-events-none"
-            style={{ background: `${C.purpleDark}40` }} />
-          <div className="absolute -bottom-10 -right-10 w-56 h-56 rounded-full blur-[80px] pointer-events-none"
-            style={{ background: `${C.orange}30` }} />
-          <div className="absolute top-0 left-0 right-0 h-px"
-            style={{ background: `linear-gradient(90deg,transparent,${C.purpleDark}80,${C.orange}80,transparent)` }} />
-
-          <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-5">
-            {/* Izquierda */}
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-2xl"
-                style={{ background: `linear-gradient(135deg,${C.purpleDark},${C.orange})` }}>
-                📱
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full"
-                    style={{ background: C.yellow, color: C.black }}>
-                    OFERTA !!!!!
-                  </span>
-                  <span className="text-[10px] font-bold text-white/50">· Solo por tiempo limitado</span>
-                </div>
-                <p className="text-white font-black text-lg leading-tight">
-                  Compra <span style={{ color: C.yellow }}>10+ cajas</span> y obtén{" "}
-                  <span style={{ color: C.green }}>5% de descuento</span> adicional
-                </p>
-                <p className="text-white/50 text-xs mt-0.5">
-                  Aplica en todos los modelos  · Pedido mínimo 5 uds
-                </p>
-              </div>
-            </div>
-
-            {/* Derecha */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-white/50 uppercase tracking-wide">Descuento hasta</p>
-                <p className="text-3xl font-black" style={{ color: C.green }}>15%</p>
-                <p className="text-[10px] font-bold text-white/50">en 100+ cajas</p>
-              </div>
-              <div className="h-12 w-px" style={{ background: "rgba(255,255,255,0.15)" }} />
-              <button className="px-5 py-2.5 rounded-xl text-sm font-black text-black transition-all group-hover:scale-105"
-                style={{ background: `linear-gradient(135deg,${C.yellow},${C.orange})` }}
-                onClick={() => setShowFiltros(true)}>
-                Ver ofertas →
-              </button>
-            </div>
-          </div>
+        {/* ══ BANNER — imagen desde /images/banner-catalogo.jpg ══
+            Pon tu imagen en: public/images/banner-catalogo.jpg
+            (también acepta .png — solo cambia la extensión en el src)            */}
+        <div className="mb-8 rounded-2xl overflow-hidden">
+          <img
+            src="/images/bien.jpeg"
+            alt="Banner catálogo"
+            className="w-full block"
+            style={{ height: "auto", objectFit: "contain" }}
+            onError={e => {
+              (e.target as HTMLImageElement).parentElement!.style.display = "none";
+            }}
+          />
         </div>
 
         {/* HEADER */}
@@ -506,34 +469,30 @@ export default function CatalogoPage() {
                 <span style={{ color: C.purpleDark }}>Mayorista</span>
               </h1>
               <p className="text-gray-500 text-sm mt-1">
-                Celulares nuevos sellados · Mínimo {productos[0]?.pedido_minimo || 5} unidades
+                {/* Celulares nuevos sellados · Mínimo {productos[0]?.pedido_minimo || 5} unidades */}
               </p>
-
-              {/* Stats rápidas */}
               <div className="flex flex-wrap gap-3 mt-3">
                 {[
-                  { icon: Package, label: `${statsDisp.disponibles} modelos disponibles`, color: "#16a34a" },
-                  { icon: Box,     label: `${statsDisp.totalCajas.toLocaleString()} cajas en stock`, color: C.purpleDark },
-                  { icon: Grid,    label: `${statsDisp.totalUnidades.toLocaleString()} unidades totales`, color: C.orange },
+                  { icon: Package, label: `${statsDisp.disponibles} modelos disponibles`,              color: "#16a34a"    },
+                  { icon: Box,     label: `${statsDisp.totalCajas.toLocaleString()} cajas en stock`,    color: C.purpleDark },
+                  { icon: Grid,    label: `${statsDisp.totalUnidades.toLocaleString()} unidades totales`, color: C.orange   },
                 ].map(({ icon: Icon, label, color }) => (
-                  <span key={label} className="inline-flex items-center gap-1.5 text-xs font-semibold"
-                    style={{ color }}>
+                  <span key={label} className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color }}>
                     <Icon size={12} /> {label}
                   </span>
                 ))}
               </div>
             </div>
 
-            {/* Controles */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Selector categoría */}
               <div className="relative" ref={categRef}>
                 <button onClick={() => setCategDrop(!categDrop)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all"
                   style={{
-                    background: categoria !== "Todos" ? `${C.purpleDark}10` : C.white,
-                    borderColor: categoria !== "Todos" ? `${C.purpleDark}40` : C.gray200,
-                    color: categoria !== "Todos" ? C.purpleDark : C.gray600,
+                    background:   categoria !== "Todos" ? `${C.purpleDark}10` : C.white,
+                    borderColor:  categoria !== "Todos" ? `${C.purpleDark}40` : C.gray200,
+                    color:        categoria !== "Todos" ? C.purpleDark        : C.gray600,
                   }}>
                   <Grid size={14} style={{ color: C.purpleDark }} />
                   {categoria}
@@ -552,7 +511,7 @@ export default function CatalogoPage() {
                             className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 text-left"
                             style={{
                               background: active ? `${info.color}12` : "transparent",
-                              color: active ? info.color : C.gray600,
+                              color:      active ? info.color        : C.gray600,
                             }}>
                             <Icon size={14} style={{ color: active ? info.color : C.gray400 }} />
                             <div>
@@ -571,9 +530,9 @@ export default function CatalogoPage() {
               <button onClick={() => setShowFiltros(!showFiltros)}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all"
                 style={{
-                  background: showFiltros ? `${C.purpleDark}10` : C.white,
+                  background:  showFiltros ? `${C.purpleDark}10` : C.white,
                   borderColor: showFiltros ? `${C.purpleDark}40` : C.gray200,
-                  color: showFiltros ? C.purpleDark : C.gray600,
+                  color:       showFiltros ? C.purpleDark         : C.gray600,
                 }}>
                 <Filter size={14} style={{ color: C.purpleDark }} />
                 Filtros
@@ -595,8 +554,8 @@ export default function CatalogoPage() {
                 placeholder="Buscar por nombre, marca, modelo, color..."
                 className="w-full pl-11 pr-10 py-3 rounded-xl border-2 text-sm outline-none transition-all"
                 style={{ borderColor: busqueda ? C.purpleDark : C.gray200, color: C.gray900, background: C.white }}
-                onFocus={e => (e.target.style.borderColor = C.purpleDark)}
-                onBlur={e => { if (!busqueda) e.target.style.borderColor = C.gray200; }}
+                onFocus={e  => (e.target.style.borderColor = C.purpleDark)}
+                onBlur={e   => { if (!busqueda) e.target.style.borderColor = C.gray200; }}
               />
               {busqueda && (
                 <button onClick={() => setBusqueda("")} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -610,8 +569,8 @@ export default function CatalogoPage() {
                 placeholder="Buscar por SKU exacto..."
                 className="w-full pl-11 pr-10 py-3 rounded-xl border-2 text-sm outline-none transition-all"
                 style={{ borderColor: busquedaSku ? C.purpleDark : C.gray200, color: C.gray900, background: C.white, fontFamily: "monospace" }}
-                onFocus={e => (e.target.style.borderColor = C.purpleDark)}
-                onBlur={e => { if (!busquedaSku) e.target.style.borderColor = C.gray200; }}
+                onFocus={e  => (e.target.style.borderColor = C.purpleDark)}
+                onBlur={e   => { if (!busquedaSku) e.target.style.borderColor = C.gray200; }}
               />
               {busquedaSku && (
                 <button onClick={() => setBusquedaSku("")} className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -675,9 +634,9 @@ export default function CatalogoPage() {
                   </p>
                   <div className="space-y-2">
                     {[
-                      { label: "Solo con stock", val: soloDisp, set: setSoloDisp, color: "#16a34a" },
-                      { label: "Solo destacados", val: soloDest, set: setSoloDest, color: C.yellow  },
-                      { label: "Solo en oferta",  val: soloOferta, set: setSoloOferta, color: C.orange },
+                      { label: "Solo con stock",  val: soloDisp,   set: setSoloDisp,   color: "#16a34a" },
+                      { label: "Solo destacados", val: soloDest,   set: setSoloDest,   color: C.yellow  },
+                      { label: "Solo en oferta",  val: soloOferta, set: setSoloOferta, color: C.orange  },
                     ].map(f => (
                       <label key={f.label} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: C.gray600 }}>
                         <input type="checkbox" checked={f.val} onChange={e => f.set(e.target.checked)}
@@ -695,10 +654,10 @@ export default function CatalogoPage() {
                   </p>
                   <div className="rounded-xl p-3 border-2" style={{ background: C.white, borderColor: `${C.purpleDark}20` }}>
                     {[
-                      { l: "1–9 cajas",    d: "Precio base" },
-                      { l: "10–49 cajas",  d: "-5%" },
-                      { l: "50–99 cajas",  d: "-10%" },
-                      { l: "100+ cajas",   d: "-15%" },
+                      { l: "1–9 cajas",   d: "Precio base" },
+                      { l: "10–49 cajas", d: "-5%"         },
+                      { l: "50–99 cajas", d: "-10%"        },
+                      { l: "100+ cajas",  d: "-15%"        },
                     ].map(({ l, d }) => (
                       <div key={l} className="flex justify-between text-xs py-1.5 border-b last:border-0"
                         style={{ color: C.gray600, borderColor: C.gray100 }}>
@@ -715,7 +674,13 @@ export default function CatalogoPage() {
           {/* Resultado */}
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              <span className="font-black text-gray-900">{filtrados.length}</span> producto{filtrados.length !== 1 ? "s" : ""} encontrado{filtrados.length !== 1 ? "s" : ""}
+              <span className="font-black text-gray-900">{filtrados.length}</span>{" "}
+              producto{filtrados.length !== 1 ? "s" : ""} encontrado{filtrados.length !== 1 ? "s" : ""}
+              {totalPaginas > 1 && (
+                <span className="ml-2 text-gray-400">
+                  · Página <span className="font-black text-gray-700">{paginaActual}</span> de {totalPaginas}
+                </span>
+              )}
             </p>
             {(busqueda || busquedaSku || marcasSel.length || soloDisp || soloDest || soloOferta || categoria !== "Todos") && (
               <button onClick={limpiarFiltros}
@@ -745,26 +710,99 @@ export default function CatalogoPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtrados.map((prod: any) => (
-              <ProductoCard key={prod.id} prod={prod}
-                onNavigate={navegar}
-                onQR={generarQR}
-                onWhatsApp={compartirWA}
-                navigating={navId === prod.id}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {productosPagina.map((prod: any) => (
+                <ProductoCard key={prod.id} prod={prod}
+                  onNavigate={navegar}
+                  onQR={generarQR}
+                  onWhatsApp={compartirWA}
+                  navigating={navId === prod.id}
+                />
+              ))}
+            </div>
+
+            {/* ── PAGINACIÓN ────────────────────────────────────────────────── */}
+            {totalPaginas > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-12">
+                {/* Anterior */}
+                <button
+                  onClick={() => irAPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: paginaActual === 1 ? C.gray200 : C.purpleDark,
+                    color:       paginaActual === 1 ? C.gray400 : C.purpleDark,
+                    background:  C.white,
+                  }}>
+                  <ChevronLeft size={15} /> Anterior
+                </button>
+
+                {/* Números de página */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(n => {
+                      // Mostrar: primera, última, actual y ±2 alrededor de la actual
+                      return n === 1 || n === totalPaginas || Math.abs(n - paginaActual) <= 2;
+                    })
+                    .reduce((acc: (number | "...")[], n, idx, arr) => {
+                      // Insertar "..." donde hay saltos
+                      if (idx > 0 && n - (arr[idx - 1] as number) > 1) acc.push("...");
+                      acc.push(n);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === "..." ? (
+                        <span key={`dots-${idx}`} className="px-2 text-gray-400 text-sm select-none">…</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => irAPagina(item as number)}
+                          className="w-10 h-10 rounded-xl text-sm font-black transition-all border-2"
+                          style={{
+                            background:  paginaActual === item ? C.purpleDark : C.white,
+                            color:       paginaActual === item ? C.white      : C.gray600,
+                            borderColor: paginaActual === item ? C.purpleDark : C.gray200,
+                          }}>
+                          {item}
+                        </button>
+                      )
+                    )
+                  }
+                </div>
+
+                {/* Siguiente */}
+                <button
+                  onClick={() => irAPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border-2 text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: paginaActual === totalPaginas ? C.gray200 : C.purpleDark,
+                    color:       paginaActual === totalPaginas ? C.gray400 : C.purpleDark,
+                    background:  C.white,
+                  }}>
+                  Siguiente <ChevronRight size={15} />
+                </button>
+              </div>
+            )}
+
+            {/* Info página */}
+            {totalPaginas > 1 && (
+              <p className="text-center text-xs text-gray-400 mt-3">
+                Mostrando {inicio + 1}–{Math.min(inicio + POR_PAGINA, filtrados.length)} de {filtrados.length} productos
+              </p>
+            )}
+          </>
         )}
 
         {/* FOOTER */}
         <footer className="mt-14 pt-8 border-t-2" style={{ borderColor: C.gray200 }}>
           <div className="flex flex-wrap justify-center items-center gap-5 text-xs font-medium" style={{ color: C.gray500 }}>
             {[
-              { icon: <ShieldCheck size={13} style={{ color: C.orange }} />, t: "100% originales sellados" },
-              { icon: <Truck size={13} style={{ color: "#16a34a" }} />,      t: "Envío 24-48h Lima" },
-              { icon: <Award size={13} style={{ color: C.yellow }} />,       t: "Garantía de fábrica" },
-              { icon: <Layers size={13} style={{ color: C.purpleDark }} />,  t: "Precios sin IGV · Solo S/ PEN" },
+              { icon: <ShieldCheck size={13} style={{ color: C.orange }} />,      t: "100% originales sellados" },
+              { icon: <Truck       size={13} style={{ color: "#16a34a" }} />,      t: "Envío 24-48h Lima"        },
+              { icon: <Award       size={13} style={{ color: C.yellow }} />,       t: "Garantía de fábrica"      },
+              { icon: <Layers      size={13} style={{ color: C.purpleDark }} />,   t: "Precios sin IGV · Solo S/ PEN" },
             ].map(({ icon, t }) => (
               <span key={t} className="flex items-center gap-1.5">{icon}{t}</span>
             ))}
