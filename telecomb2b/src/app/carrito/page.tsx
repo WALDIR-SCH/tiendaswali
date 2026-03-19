@@ -521,9 +521,6 @@ export default function CarritoPage() {
               <div style={{ width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}`, animation:"pulse 2s infinite" }} />
               <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>Perú</span>
             </div>
-            <h1 style={{ fontSize:16, fontWeight:900, color:C.gray900 }}>
-              Checkout <span style={{ color:C.purpleDark }}>B2B</span>
-            </h1>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <ShoppingBag size={18} style={{ color:C.gray400 }} />
