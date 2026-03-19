@@ -16,22 +16,22 @@ const Y = "#F6FA00";
 const G = "#28FB4B";
 
 const brands = [
-  { name:"Apple",    logo:"https://logo.clearbit.com/apple.com",           bg:"#f8f9fa" },
-  { name:"Samsung",  logo:"https://logo.clearbit.com/samsung.com",         bg:"#eff6ff" },
-  { name:"Xiaomi",   logo:"https://logo.clearbit.com/xiaomi.com",          bg:"#fff1f2" },
-  { name:"Motorola", logo:"https://logo.clearbit.com/motorola.com",        bg:"#f0fdf4" },
-  { name:"Huawei",   logo:"https://logo.clearbit.com/huawei.com",          bg:"#fff7ed" },
-  { name:"OPPO",     logo:"https://logo.clearbit.com/oppo.com",            bg:"#fdf4ff" },
-  { name:"Nokia",    logo:"https://logo.clearbit.com/nokia.com",           bg:"#eff6ff" },
-  { name:"OnePlus",  logo:"https://logo.clearbit.com/oneplus.com",         bg:"#fff1f2" },
-  { name:"Realme",   logo:"https://logo.clearbit.com/realme.com",          bg:"#fff7ed" },
-  { name:"Vivo",     logo:"https://logo.clearbit.com/vivo.com",            bg:"#f5f3ff" },
-  { name:"Honor",    logo:"https://logo.clearbit.com/honor.com",           bg:"#f0fdf4" },
-  { name:"Asus",     logo:"https://logo.clearbit.com/asus.com",            bg:"#fdf4ff" },
-  { name:"Google",   logo:"https://logo.clearbit.com/google.com",          bg:"#eff6ff" },
-  { name:"Infinix",  logo:"https://logo.clearbit.com/infinixmobility.com", bg:"#fff1f2" },
-  { name:"Tecno",    logo:"https://logo.clearbit.com/tecno-mobile.com",    bg:"#f0fdf4" },
-  { name:"RedMagic", logo:"https://logo.clearbit.com/nubia.com",           bg:"#fff1f2" },
+  { name:"Apple",    logo:"/images/marcas/apple.png",           bg:"#f8f9fa" },
+  { name:"Samsung",  logo: "/images/marcas/samsung.png",         bg:"#eff6ff" },
+  { name:"Xiaomi",   logo:"/images/marcas/xiaomi.png",          bg:"#fff1f2" },
+  { name:"Motorola", logo:"/images/marcas/motorola.png",        bg:"#f0fdf4" },
+  { name:"Huawei",   logo:"/images/marcas/huawei.png",          bg:"#fff7ed" },
+  { name:"OPPO",     logo:"/images/marcas/oppo.png",            bg:"#fdf4ff" },
+  { name:"Nokia",    logo:"/images/marcas/nokia.png",           bg:"#eff6ff" },
+  { name:"OnePlus",  logo:"/images/marcas/oneplus.png",         bg:"#fff1f2" },
+  { name:"Realme",   logo:"/images/marcas/realme.png",          bg:"#fff7ed" },
+  { name:"Vivo",     logo:"/images/marcas/vivo.png",            bg:"#f5f3ff" },
+  { name:"Honor",    logo:"/images/marcas/honor.png",           bg:"#f0fdf4" },
+  { name:"Asus",     logo:"/images/marcas/asus.png",            bg:"#fdf4ff" },
+  { name:"Google",   logo:"/images/marcas/google.png",          bg:"#eff6ff" },
+  { name:"Infinix",  logo:"/images/marcas/infinix.png", bg:"#fff1f2" },
+  { name:"Tecno",    logo:"/images/marcas/tecno.png",    bg:"#f0fdf4" },
+  { name:"RedMagic", logo:"/images/marcas/redmagic.png",           bg:"#fff1f2" },
 ];
 
 const promoProducts = [
