@@ -720,7 +720,7 @@ export default function DetalleProducto() {
                 <span className="text-[10px] font-bold px-2 py-1 rounded-full border"
                   style={{ background: C.gray100, borderColor: C.gray300, color: C.gray600 }}>{producto.categoria_id}</span>
                 <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ background: `${C.purple}15`, color: C.purple }}>
-                  <BadgeCheck size={10} className="inline mr-0.5" /> Premium B2B
+                  <BadgeCheck size={10} className="inline mr-0.5" /> Premium
                 </span>
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 leading-tight">{producto.nombre_producto}</h1>
