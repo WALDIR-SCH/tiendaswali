@@ -1,596 +1,525 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { 
-  Settings, Bell, Lock, Mail, Shield, Palette, 
-  Download, Key, Database, Moon, Sun
-} from 'lucide-react';
+// src/app/opciones/configuracion/page.tsx
+
+import { useState, useEffect, useCallback } from 'react';
+import { Settings, Bell, Lock, Shield, Palette, Download, Key, Database, Moon, Sun, Check, Globe } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 
-// Definimos la configuración completa por defecto
-const defaultConfig = {
-  notificacionesEmail: true,
-  notificacionesApp: true,
-  autenticacion2FA: false,
-  idioma: 'es',
-  tema: 'oscuro',
-  privacidadPerfil: 'publico',
-  mostrarPrecios: true,
-  recibirOfertas: true,
-  vistaCatalogo: 'grid',
-  correoPrincipal: 'usuario@empresa.com',
-  correosSecundarios: []
+/* ─── TRADUCCIONES ─── */
+const TX: Record<string, Record<string, string>> = {
+  titulo:         { es: "Configuración",              en: "Settings",                  pt: "Configurações"              },
+  subtitulo:      { es: "Personaliza tu experiencia", en: "Customize your experience", pt: "Personalize sua experiência" },
+  restablecer:    { es: "Restablecer",                en: "Reset",                     pt: "Restaurar"                  },
+  apariencia:     { es: "Apariencia",                 en: "Appearance",                pt: "Aparência"                  },
+  tema:           { es: "Tema",                       en: "Theme",                     pt: "Tema"                       },
+  temaClaro:      { es: "Claro",                      en: "Light",                     pt: "Claro"                      },
+  temaOscuro:     { es: "Oscuro",                     en: "Dark",                      pt: "Escuro"                     },
+  idioma:         { es: "Idioma",                     en: "Language",                  pt: "Idioma"                     },
+  notificaciones: { es: "Notificaciones",             en: "Notifications",             pt: "Notificações"               },
+  notifEmail:     { es: "Por email",                  en: "Email alerts",              pt: "Por e-mail"                 },
+  notifEmailDesc: { es: "Pedidos y cotizaciones",     en: "Orders and quotes",         pt: "Pedidos e cotações"         },
+  notifApp:       { es: "En la app",                  en: "In-app",                    pt: "No app"                     },
+  notifAppDesc:   { es: "Campana en tiempo real",     en: "Real-time bell",            pt: "Sino em tempo real"         },
+  ofertas:        { es: "Ofertas y descuentos",       en: "Offers & discounts",        pt: "Ofertas e descontos"        },
+  seguridad:      { es: "Seguridad",                  en: "Security",                  pt: "Segurança"                  },
+  dosFactor:      { es: "Autenticación 2FA",          en: "2FA Authentication",        pt: "Autenticação 2FA"           },
+  dosFactorDesc:  { es: "Capa extra de seguridad",    en: "Extra security layer",      pt: "Camada extra de segurança"  },
+  privacidad:     { es: "Privacidad del perfil",      en: "Profile privacy",           pt: "Privacidade do perfil"      },
+  publico:        { es: "Público",                    en: "Public",                    pt: "Público"                    },
+  soloEmpresa:    { es: "Solo empresas verificadas",  en: "Verified companies only",   pt: "Só empresas verificadas"    },
+  privado:        { es: "Privado",                    en: "Private",                   pt: "Privado"                    },
+  cuenta:         { es: "Acciones de cuenta",         en: "Account actions",           pt: "Ações da conta"             },
+  cambiarPass:    { es: "Cambiar contraseña",         en: "Change password",           pt: "Alterar senha"              },
+  exportar:       { es: "Exportar mis datos",         en: "Export my data",            pt: "Exportar meus dados"        },
+  historial:      { es: "Descargar historial",        en: "Download history",          pt: "Baixar histórico"           },
+  passActual:     { es: "Contraseña actual",          en: "Current password",          pt: "Senha atual"                },
+  passNueva:      { es: "Nueva contraseña",           en: "New password",              pt: "Nova senha"                 },
+  passConfirmar:  { es: "Confirmar contraseña",       en: "Confirm password",          pt: "Confirmar senha"            },
+  guardar:        { es: "Guardar cambios",            en: "Save changes",              pt: "Salvar alterações"          },
+  cancelar:       { es: "Cancelar",                   en: "Cancel",                    pt: "Cancelar"                   },
+  actualizar:     { es: "Actualizar",                 en: "Update",                    pt: "Atualizar"                  },
+  confirmar:      { es: "Confirmar",                  en: "Confirm",                   pt: "Confirmar"                  },
+  guardado:       { es: "✅ Cambios guardados",       en: "✅ Changes saved",          pt: "✅ Alterações salvas"       },
+  activado:       { es: "Activado",                   en: "Enabled",                   pt: "Ativado"                    },
+  vistaPrev:      { es: "Vista previa",               en: "Preview",                   pt: "Pré-visualização"           },
 };
 
+const t = (k: string, lang: string) => TX[k]?.[lang] ?? TX[k]?.["es"] ?? k;
+
+/* ─── COLORES POR TEMA ─── */
+const TEMAS = {
+  claro: {
+    bgPage:     "#f9fafb",
+    bgCard:     "#ffffff",
+    bgInput:    "#f3f4f6",
+    bgHover:    "#f3f4f6",
+    text:       "#111827",
+    textSec:    "#6b7280",
+    textMuted:  "#9ca3af",
+    border:     "#e5e7eb",
+    borderStr:  "#d1d5db",
+    primary:    "#7c3aed",
+    priLight:   "#f5f3ff",
+    shadow:     "0 4px 20px rgba(0,0,0,0.07)",
+    shadowHov:  "0 8px 32px rgba(0,0,0,0.12)",
+  },
+  oscuro: {
+    bgPage:     "#0f0f13",
+    bgCard:     "#1e1e2e",
+    bgInput:    "#252535",
+    bgHover:    "#2a2a3e",
+    text:       "#f1f1f5",
+    textSec:    "#a8a8c0",
+    textMuted:  "#6b6b80",
+    border:     "#2e2e42",
+    borderStr:  "#3e3e58",
+    primary:    "#9b5cf6",
+    priLight:   "#1e1228",
+    shadow:     "0 4px 20px rgba(0,0,0,0.4)",
+    shadowHov:  "0 8px 32px rgba(0,0,0,0.6)",
+  },
+};
+
+type TemaKey = keyof typeof TEMAS;
+
+/* ─── APLICAR TEMA AL DOM ─── */
+function applyThemeToDOM(tema: TemaKey) {
+  const T = TEMAS[tema];
+  const r = document.documentElement;
+  r.setAttribute("data-theme", tema);
+  if (tema === "oscuro") r.classList.add("dark"); else r.classList.remove("dark");
+  // Variables CSS globales que afectan TODA la app
+  const vars: Record<string, string> = {
+    "--bg-page":       T.bgPage,
+    "--bg-card":       T.bgCard,
+    "--bg-input":      T.bgInput,
+    "--bg-hover":      T.bgHover,
+    "--color-text":    T.text,
+    "--color-text-2":  T.textSec,
+    "--color-muted":   T.textMuted,
+    "--color-border":  T.border,
+    "--color-border2": T.borderStr,
+    "--color-primary": T.primary,
+    "--color-priLight":T.priLight,
+  };
+  Object.entries(vars).forEach(([k, v]) => r.style.setProperty(k, v));
+  // También setear body directamente para cobertura total
+  document.body.style.backgroundColor = T.bgPage;
+  document.body.style.color = T.text;
+}
+
+/* ─── TOGGLE ─── */
+const Toggle = ({ on, onChange, C }: { on: boolean; onChange: () => void; C: typeof TEMAS.claro }) => (
+  <button onClick={onChange} style={{
+    position: "relative", width: 44, height: 24, borderRadius: 20,
+    background: on ? C.primary : C.border, border: "none", cursor: "pointer",
+    flexShrink: 0, transition: "background 0.25s",
+  }}>
+    <span style={{
+      position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
+      background: "#fff", transition: "left 0.25s",
+      left: on ? 23 : 3, boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+    }} />
+  </button>
+);
+
+/* ─── ROW ─── */
+const Row = ({ label, desc, right, C }: { label: string; desc?: string; right: React.ReactNode; C: typeof TEMAS.claro }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 0", borderTop: `1px solid ${C.border}` }}>
+    <div>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: C.text }}>{label}</p>
+      {desc && <p style={{ margin: "2px 0 0", fontSize: 11, color: C.textMuted }}>{desc}</p>}
+    </div>
+    {right}
+  </div>
+);
+
+/* ═══════════════════════════════════════
+   PÁGINA PRINCIPAL
+═══════════════════════════════════════ */
 export default function ConfiguracionPage() {
-  const { t, language, setLanguage } = useLanguage();
-  const [config, setConfig] = useState({
-    ...defaultConfig,
-    idioma: language
-  });
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    current: '',
-    new: '',
-    confirm: ''
-  });
+  const { language, setLanguage } = useLanguage();
+  const L = useCallback((k: string) => t(k, language), [language]);
 
-  // Aplicar tema e idioma al cargar
-  // En configuracion.tsx - dentro del useEffect
-useEffect(() => {
-  // Cargar configuración guardada
-  const savedConfig = localStorage.getItem('configUsuario');
-  if (savedConfig) {
+  /* estado */
+  const [tema,       setTemaState]  = useState<TemaKey>("claro");
+  const [notifEmail, setNotifEmail] = useState(true);
+  const [notifApp,   setNotifApp]   = useState(true);
+  const [ofertas,    setOfertas]    = useState(true);
+  const [twoFA,      setTwoFA]      = useState(false);
+  const [priv,       setPriv]       = useState("publico");
+  const [show2FA,    setShow2FA]    = useState(false);
+  const [showPass,   setShowPass]   = useState(false);
+  const [toast,      setToast]      = useState(false);
+  const [pass,       setPass]       = useState({ actual: "", nueva: "", confirm: "" });
+
+  /* cargar config guardada */
+  useEffect(() => {
     try {
-      const parsedConfig = JSON.parse(savedConfig);
-      const mergedConfig = { ...defaultConfig, ...parsedConfig };
-      setConfig(mergedConfig);
-      
-      // Aplicar tema
-      applyTheme(mergedConfig.tema);
-      
-      // Sincronizar con el contexto global
-      if (mergedConfig.idioma !== language) {
-        setLanguage(mergedConfig.idioma);
+      const raw = localStorage.getItem("mm_config");
+      if (raw) {
+        const c = JSON.parse(raw);
+        const savedTema: TemaKey = c.tema === "oscuro" ? "oscuro" : "claro";
+        setTemaState(savedTema);
+        applyThemeToDOM(savedTema);
+        if (c.notifEmail  !== undefined) setNotifEmail(c.notifEmail);
+        if (c.notifApp    !== undefined) setNotifApp(c.notifApp);
+        if (c.ofertas     !== undefined) setOfertas(c.ofertas);
+        if (c.twoFA       !== undefined) setTwoFA(c.twoFA);
+        if (c.priv        !== undefined) setPriv(c.priv);
+        if (c.idioma && c.idioma !== language) setLanguage(c.idioma);
+      } else {
+        applyThemeToDOM("claro");
       }
-      
-    } catch (error) {
-      console.error('Error al cargar configuración:', error);
-      applyTheme(defaultConfig.tema);
-    }
-  } else {
-    applyTheme(defaultConfig.tema);
-  }
-}, [language, setLanguage]); // Añadir dependencias
+    } catch { applyThemeToDOM("claro"); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Aplicar tema al documento
-  const applyTheme = (theme: string) => {
-    const root = document.documentElement;
-    
-    if (theme === 'claro') {
-      // Tema claro con paleta profesional
-      root.style.setProperty('--background-primary', '#F3F4F6');
-      root.style.setProperty('--background-secondary', '#FFFFFF');
-      root.style.setProperty('--background-card', '#FFFFFF');
-      root.style.setProperty('--text-primary', '#4B5563');
-      root.style.setProperty('--text-secondary', '#6B7280');
-      root.style.setProperty('--border-color', '#D1D5D8');
-      root.style.setProperty('--primary-color', '#9851F9');
-      root.style.setProperty('--primary-hover', '#7C35E0');
-      root.style.setProperty('--accent-orange', '#FF6600');
-      root.style.setProperty('--accent-green', '#28FB4B');
-      root.style.setProperty('--accent-yellow', '#F6FA00');
-    } else {
-      // Tema oscuro con paleta profesional
-      root.style.setProperty('--background-primary', '#1F2937');
-      root.style.setProperty('--background-secondary', '#513c37');
-      root.style.setProperty('--background-card', '#374151');
-      root.style.setProperty('--text-primary', '#F9FAFB');
-      root.style.setProperty('--text-secondary', '#D1D5DB');
-      root.style.setProperty('--border-color', '#4B5563');
-      root.style.setProperty('--primary-color', '#9851F9');
-      root.style.setProperty('--primary-hover', '#7C35E0');
-      root.style.setProperty('--accent-orange', '#FF6600');
-      root.style.setProperty('--accent-green', '#28FB4B');
-      root.style.setProperty('--accent-yellow', '#F6FA00');
-    }
-    
-    localStorage.setItem('theme', theme);
+  /* guardar */
+  const save = (overrides: Record<string, any> = {}) => {
+    const cfg = { tema, notifEmail, notifApp, ofertas, twoFA, priv, idioma: language, ...overrides };
+    localStorage.setItem("mm_config", JSON.stringify(cfg));
+    // también guardar clave legacy para compatibilidad
+    localStorage.setItem("mm_tema", cfg.tema);
+    setToast(true);
+    setTimeout(() => setToast(false), 2000);
   };
 
-  const handleChange = (key: string, value: any) => {
-    const newConfig = { ...config, [key]: value };
-    setConfig(newConfig);
-    
-    // Aplicar cambios inmediatamente
-    if (key === 'tema') {
-      applyTheme(value);
-    } else if (key === 'idioma') {
-      // Usar el contexto global
-      setLanguage(value);
-      document.documentElement.lang = value;
-    }
-    
-    // Guardar en localStorage
-    localStorage.setItem('configUsuario', JSON.stringify(newConfig));
+  /* cambiar tema */
+  const changeTema = (v: TemaKey) => {
+    setTemaState(v);
+    applyThemeToDOM(v);
+    save({ tema: v });
   };
 
-  const toggle2FA = () => {
-    if (!config.autenticacion2FA) {
-      setShow2FAModal(true);
-    } else {
-      handleChange('autenticacion2FA', false);
-    }
+  /* cambiar idioma */
+  const changeIdioma = (v: string) => {
+    setLanguage(v);
+    save({ idioma: v });
+    // emitir evento para que el Navbar lo capture
+    window.dispatchEvent(new CustomEvent("languageChanged", { detail: v }));
   };
 
-  const activate2FA = () => {
-    handleChange('autenticacion2FA', true);
-    setShow2FAModal(false);
+  /* reset */
+  const handleReset = () => {
+    setTemaState("claro"); applyThemeToDOM("claro");
+    setNotifEmail(true); setNotifApp(true); setOfertas(true);
+    setTwoFA(false); setPriv("publico"); setLanguage("es");
+    localStorage.removeItem("mm_config"); localStorage.removeItem("mm_tema");
+    setToast(true); setTimeout(() => setToast(false), 2000);
   };
 
-  const handlePasswordChange = () => {
-    if (!passwordData) {
-      alert(t('common.error'));
-      return;
-    }
+  const C = TEMAS[tema];
 
-    if (passwordData.new !== passwordData.confirm) {
-      alert(t('auth.passwordsNotMatch'));
-      return;
-    }
-    
-    if (passwordData.new.length < 6) {
-      alert(t('auth.passwordMinLength'));
-      return;
-    }
-    
-    setPasswordData({ current: '', new: '', confirm: '' });
-    setShowPasswordModal(false);
-    alert(t('auth.passwordUpdated'));
+  /* ── Estilos reutilizables ── */
+  const cardStyle: React.CSSProperties = {
+    background: C.bgCard, border: `1px solid ${C.border}`,
+    borderRadius: 18, padding: "20px 22px", boxShadow: C.shadow,
   };
 
-  const exportData = () => {
-    const dataStr = JSON.stringify(config, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `telecom-b2b-backup-${new Date().toISOString().split('T')[0]}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "10px 14px", borderRadius: 11,
+    border: `1.5px solid ${C.border}`, background: C.bgInput,
+    color: C.text, fontSize: 13, outline: "none", boxSizing: "border-box" as const,
   };
-
-  const ToggleSwitch = ({ enabled, onChange, disabled = false }: { 
-    enabled: boolean, 
-    onChange: () => void,
-    disabled?: boolean 
-  }) => (
-    <button
-      onClick={onChange}
-      disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ${
-        enabled ? 'config-toggle-enabled' : 'config-toggle-disabled'
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-lg'}`}
-    >
-      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 shadow-md ${
-        enabled ? 'translate-x-6' : 'translate-x-1'
-      }`} />
-    </button>
-  );
-
-  // Estilos en línea para asegurar que los temas se apliquen
-  const styles = `
-    .config-page {
-      background-color: var(--background-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
-    }
-    
-    .config-card {
-      background-color: var(--background-card);
-      border-color: var(--border-color);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-      transition: all 0.3s ease;
-    }
-    
-    .config-card:hover {
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    }
-    
-    .config-text-primary {
-      color: var(--text-primary);
-    }
-    
-    .config-text-secondary {
-      color: var(--text-secondary);
-    }
-    
-    .config-border {
-      border-color: var(--border-color);
-    }
-    
-    .config-input {
-      background-color: var(--background-secondary);
-      border-color: var(--border-color);
-      color: var(--text-primary);
-      transition: all 0.3s ease;
-    }
-    
-    .config-input:focus {
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(152, 81, 249, 0.1);
-    }
-    
-    .config-button-primary {
-      background-color: var(--primary-color);
-      color: white;
-      transition: all 0.3s ease;
-    }
-    
-    .config-button-primary:hover {
-      background-color: var(--primary-hover);
-      transform: translateY(-1px);
-    }
-    
-    .config-button-secondary {
-      background-color: var(--background-secondary);
-      color: var(--text-primary);
-      border-color: var(--border-color);
-      transition: all 0.3s ease;
-    }
-    
-    .config-button-secondary:hover {
-      background-color: var(--primary-color);
-      color: white;
-    }
-    
-    .config-toggle-enabled {
-      background-color: var(--accent-green);
-    }
-    
-    .config-toggle-disabled {
-      background-color: var(--border-color);
-    }
-  `;
 
   return (
-    <>
-      <style jsx global>{styles}</style>
-      <div className="config-page space-y-6 max-w-8xl mx-auto px-30 py-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
-          <div>
-            <h1 className="config-text-primary text-2xl sm:text-3xl font-bold flex items-center gap-3">
-              <Settings size={28} style={{color: '#9851F9'}} />
-              {t('settings.title')}
-            </h1>
-            <p className="config-text-secondary mt-1 text-sm sm:text-base">{t('settings.subtitle')}</p>
+    <div style={{ background: C.bgPage, minHeight: "100vh", padding: "32px 20px", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", transition: "background 0.3s, color 0.3s" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+        {/* Toast */}
+        {toast && (
+          <div style={{
+            position: "fixed", top: 80, right: 24, zIndex: 999,
+            background: C.primary, color: "#fff",
+            padding: "12px 20px", borderRadius: 12, fontSize: 13, fontWeight: 700,
+            boxShadow: C.shadow, animation: "slideIn 0.3s ease",
+          }}>
+            {L("guardado")}
           </div>
-          <button 
-            onClick={() => {
-              const resetConfig = { ...defaultConfig, idioma: language };
-              setConfig(resetConfig);
-              applyTheme(defaultConfig.tema);
-              document.documentElement.lang = language;
-              localStorage.removeItem('configUsuario');
-            }}
-            className="config-button-secondary px-4 py-2 text-sm rounded-lg font-medium transition-all duration-300 hover:shadow-lg"
-          >
-            {t('settings.restoreDefaults')}
+        )}
+
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: C.text, display: "flex", alignItems: "center", gap: 10, letterSpacing: "-0.03em" }}>
+              <Settings size={24} style={{ color: C.primary }} />
+              {L("titulo")}
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMuted }}>{L("subtitulo")}</p>
+          </div>
+          <button onClick={handleReset} style={{
+            padding: "9px 18px", borderRadius: 11, fontSize: 12, fontWeight: 700,
+            background: C.bgInput, color: C.textSec, border: `1.5px solid ${C.border}`, cursor: "pointer",
+          }}>
+            {L("restablecer")}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Columna principal */}
-          <div className="lg:col-span-2 space-y-5">
-            {/* Notificaciones */}
-            <div className="config-card backdrop-blur-md rounded-xl p-5 border transition-all duration-300 hover:shadow-xl">
-              <h2 className="config-text-primary text-lg font-bold mb-4 flex items-center gap-2">
-                <Bell size={20} style={{color: '#FF6600'}} />
-                {t('settings.notifications')}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
+
+          {/* ══ COLUMNA IZQUIERDA ══ */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* ── APARIENCIA ── */}
+            <div style={cardStyle}>
+              <h2 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 800, color: C.text, display: "flex", alignItems: "center", gap: 8 }}>
+                <Palette size={18} style={{ color: C.primary }} />{L("apariencia")}
               </h2>
-              
-              <div className="space-y-3">
+
+              {/* Tema */}
+              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{L("tema")}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+                {([
+                  { val: "claro"  as TemaKey, Icon: Sun,  ic: "#f59e0b", preview: ["#f9fafb","#ffffff","#e5e7eb"] },
+                  { val: "oscuro" as TemaKey, Icon: Moon, ic: "#818cf8", preview: ["#0f0f13","#1e1e2e","#2e2e42"] },
+                ] as const).map(opt => {
+                  const sel = tema === opt.val;
+                  return (
+                    <button key={opt.val} onClick={() => changeTema(opt.val)} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+                      padding: "16px 12px", borderRadius: 14, cursor: "pointer",
+                      border: `2px solid ${sel ? C.primary : C.border}`,
+                      background: sel ? C.priLight : C.bgInput,
+                      position: "relative", transition: "all 0.2s",
+                    }}>
+                      {sel && (
+                        <span style={{ position: "absolute", top: 8, right: 8, width: 16, height: 16, borderRadius: "50%", background: C.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Check size={9} color="#fff" strokeWidth={3} />
+                        </span>
+                      )}
+                      <opt.Icon size={22} style={{ color: sel ? C.primary : opt.ic }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: sel ? C.primary : C.textSec }}>
+                        {L(opt.val === "claro" ? "temaClaro" : "temaOscuro")}
+                      </span>
+                      {/* swatches */}
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {opt.preview.map((c, ci) => (
+                          <div key={ci} style={{ width: 12, height: 12, borderRadius: 4, background: c, border: `1px solid ${C.border}` }} />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Idioma */}
+              <p style={{ margin: "0 0 10px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 16, borderTop: `1px solid ${C.border}` }}>{L("idioma")}</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
                 {[
-                  { key: 'notificacionesEmail', label: t('settings.emailNotifications'), desc: t('settings.emailDesc') },
-                  { key: 'notificacionesApp', label: t('settings.appNotifications'), desc: t('settings.appDesc') },
-                  { key: 'recibirOfertas', label: t('settings.specialOffers'), desc: t('settings.offersDesc') }
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center justify-between py-2">
-                    <div className="flex-1">
-                      <div className="config-text-primary font-medium text-sm">{item.label}</div>
-                      <div className="config-text-secondary text-xs">{item.desc}</div>
-                    </div>
-                    <ToggleSwitch 
-                      enabled={config[item.key as keyof typeof config] as boolean}
-                      onChange={() => handleChange(item.key, !config[item.key as keyof typeof config])}
-                    />
-                  </div>
-                ))}
+                  { val: "es", flag: "🇵🇪", label: "Español" },
+                  { val: "en", flag: "🇺🇸", label: "English" },
+                  { val: "pt", flag: "🇧🇷", label: "Português" },
+                ].map(l => {
+                  const sel = language === l.val;
+                  return (
+                    <button key={l.val} onClick={() => changeIdioma(l.val)} style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                      padding: "12px 8px", borderRadius: 12, cursor: "pointer",
+                      border: `2px solid ${sel ? C.primary : C.border}`,
+                      background: sel ? C.priLight : C.bgInput,
+                      position: "relative", transition: "all 0.2s",
+                    }}>
+                      {sel && (
+                        <span style={{ position: "absolute", top: 5, right: 5, width: 14, height: 14, borderRadius: "50%", background: C.primary, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Check size={8} color="#fff" strokeWidth={3} />
+                        </span>
+                      )}
+                      <span style={{ fontSize: 22 }}>{l.flag}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: sel ? C.primary : C.textSec }}>{l.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Seguridad */}
-            <div className="config-card backdrop-blur-md rounded-xl p-5 border transition-all duration-300 hover:shadow-xl">
-              <h2 className="config-text-primary text-lg font-bold mb-4 flex items-center gap-2">
-                <Lock size={20} style={{color: '#28FB4B'}} />
-                {t('settings.security')}
+            {/* ── NOTIFICACIONES ── */}
+            <div style={cardStyle}>
+              <h2 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 800, color: C.text, display: "flex", alignItems: "center", gap: 8 }}>
+                <Bell size={18} style={{ color: "#FF6600" }} />{L("notificaciones")}
               </h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div className="flex-1">
-                    <div className="config-text-primary font-medium text-sm">{t('settings.twoFactor')}</div>
-                    <div className="config-text-secondary text-xs">{t('settings.twoFactorDesc')}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {config.autenticacion2FA && (
-                      <span className="text-xs px-2 py-1 rounded-full font-medium" style={{backgroundColor: 'rgba(40, 251, 75, 0.15)', color: '#28FB4B'}}>
-                        {t('settings.activate')}
-                      </span>
-                    )}
-                    <ToggleSwitch 
-                      enabled={config.autenticacion2FA}
-                      onChange={toggle2FA}
-                    />
-                  </div>
-                </div>
+              <Row C={C} label={L("notifEmail")} desc={L("notifEmailDesc")} right={<Toggle C={C} on={notifEmail} onChange={() => { setNotifEmail(v => !v); save({ notifEmail: !notifEmail }); }} />} />
+              <Row C={C} label={L("notifApp")}   desc={L("notifAppDesc")}   right={<Toggle C={C} on={notifApp}   onChange={() => { setNotifApp(v => !v);   save({ notifApp: !notifApp });   }} />} />
+              <Row C={C} label={L("ofertas")}    desc=""                    right={<Toggle C={C} on={ofertas}    onChange={() => { setOfertas(v => !v);    save({ ofertas: !ofertas });     }} />} />
+            </div>
 
-                <div>
-                  <label className="config-text-primary font-medium text-sm mb-2 block">{t('settings.profilePrivacy')}</label>
-                  <select
-                    value={config.privacidadPerfil}
-                    onChange={(e) => handleChange('privacidadPerfil', e.target.value)}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="publico">
-                      {t('settings.privacy.public')}
-                    </option>
-                    <option value="soloEmpresa">
-                      {t('settings.privacy.verifiedCompanies')}
-                    </option>
-                    <option value="privado">
-                      {t('settings.privacy.private')}
-                    </option>
-                  </select>
+            {/* ── SEGURIDAD ── */}
+            <div style={cardStyle}>
+              <h2 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 800, color: C.text, display: "flex", alignItems: "center", gap: 8 }}>
+                <Lock size={18} style={{ color: "#22c55e" }} />{L("seguridad")}
+              </h2>
+              <Row C={C} label={L("dosFactor")} desc={L("dosFactorDesc")} right={
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {twoFA && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#dcfce7", color: "#16a34a" }}>{L("activado")}</span>}
+                  <Toggle C={C} on={twoFA} onChange={() => twoFA ? (setTwoFA(false), save({ twoFA: false })) : setShow2FA(true)} />
                 </div>
-
-                <div>
-                  <label className="config-text-primary font-medium text-sm mb-2 block">{t('settings.showPrices')}</label>
-                  <select
-                    value={config.mostrarPrecios ? 'si' : 'no'}
-                    onChange={(e) => handleChange('mostrarPrecios', e.target.value === 'si')}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="si">{t('settings.alwaysShow')}</option>
-                    <option value="no">{t('settings.onlyLogin')}</option>
-                  </select>
-                </div>
-              </div>
+              } />
+              <Row C={C} label={L("privacidad")} desc="" right={
+                <select value={priv} onChange={e => { setPriv(e.target.value); save({ priv: e.target.value }); }} style={{ ...inputStyle, width: 180 }}>
+                  <option value="publico">{L("publico")}</option>
+                  <option value="soloEmpresa">{L("soloEmpresa")}</option>
+                  <option value="privado">{L("privado")}</option>
+                </select>
+              } />
             </div>
           </div>
 
-          {/* Panel derecho */}
-          <div className="space-y-5">
-            {/* Apariencia */}
-            <div className="config-card backdrop-blur-md rounded-xl p-5 border transition-all duration-300 hover:shadow-xl">
-              <h3 className="config-text-primary text-base font-bold mb-3 flex items-center gap-2">
-                <Palette size={18} style={{color: '#9851F9'}} />
-                {t('settings.appearance')}
-              </h3>
-              
-              <div className="space-y-3">
-                <div>
-                  <label className="config-text-primary font-medium text-sm mb-2 block">{t('settings.theme')}</label>
-                  <div className="flex gap-2">
-                    {[
-                      { value: 'oscuro', label: t('settings.dark'), icon: Moon },
-                      { value: 'claro', label: t('settings.light'), icon: Sun }
-                    ].map((tema) => (
-                      <button
-                        key={tema.value}
-                        onClick={() => handleChange('tema', tema.value)}
-                        className={`flex-1 flex flex-col items-center justify-center py-3 rounded-lg transition-all duration-300 border-2 ${
-                          config.tema === tema.value 
-                            ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-lg transform scale-105' 
-                            : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-25 hover:shadow-md'
-                        }`}
-                      >
-                        <tema.icon size={18} className="mb-1" />
-                        <span className="text-sm font-medium">{tema.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          {/* ══ COLUMNA DERECHA ══ */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-                <div>
-                  <label className="config-text-primary font-medium text-sm mb-2 block">{t('settings.language')}</label>
-                  <select
-                    value={config.idioma}
-                    onChange={(e) => handleChange('idioma', e.target.value)}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm"
-                  >
-                    <option value="es">Español</option>
-                    <option value="en">English</option>
-                    <option value="pt">Português</option>
-                  </select>
+            {/* Vista previa LIVE */}
+            <div style={cardStyle}>
+              <p style={{ margin: "0 0 12px", fontSize: 11, fontWeight: 800, color: C.textMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>{L("vistaPrev")}</p>
+              {/* Mini mockup */}
+              <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${C.border}` }}>
+                {/* navbar fake */}
+                <div style={{ background: tema === "oscuro" ? "#141420" : "#ffffff", padding: "8px 12px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 5, background: C.primary, opacity: 0.9 }} />
+                  <div style={{ flex: 1, height: 6, borderRadius: 3, background: C.bgInput }} />
+                  <div style={{ width: 24, height: 6, borderRadius: 3, background: C.primary, opacity: 0.5 }} />
                 </div>
-
-                <div>
-                  <label className="config-text-primary font-medium text-sm mb-2 block">{t('settings.catalogView')}</label>
-                  <div className="flex gap-2">
-                    {[
-                      { value: 'grid', label: t('settings.grid') },
-                      { value: 'lista', label: t('settings.list') }
-                    ].map((vista) => (
-                      <button
-                        key={vista.value}
-                        onClick={() => handleChange('vistaCatalogo', vista.value)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium border-2 transition-all duration-300 ${
-                          config.vistaCatalogo === vista.value 
-                            ? 'border-purple-500 bg-purple-50 text-purple-700 shadow-md' 
-                            : 'border-gray-300 bg-white text-gray-600 hover:border-purple-300 hover:bg-purple-25 hover:shadow-sm'
-                        }`}
-                      >
-                        {vista.label}
-                      </button>
+                {/* contenido fake */}
+                <div style={{ background: C.bgPage, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ height: 8, borderRadius: 3, background: C.text, opacity: 0.15, width: "55%" }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    {[0, 1].map(n => (
+                      <div key={n} style={{ background: C.bgCard, borderRadius: 7, padding: 8, border: `1px solid ${C.border}` }}>
+                        <div style={{ height: 24, borderRadius: 5, background: C.bgInput, marginBottom: 6 }} />
+                        <div style={{ height: 5, borderRadius: 3, background: C.bgInput, marginBottom: 4 }} />
+                        <div style={{ height: 5, borderRadius: 3, background: C.bgInput, width: "70%" }} />
+                        <div style={{ marginTop: 7, height: 14, borderRadius: 5, background: C.primary, opacity: 0.6 }} />
+                      </div>
                     ))}
                   </div>
                 </div>
               </div>
+              <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 11, color: C.textMuted }}>
+                {L(tema === "claro" ? "temaClaro" : "temaOscuro")} · {language.toUpperCase()}
+              </p>
             </div>
 
-            {/* Acciones de cuenta */}
-            <div className="config-card backdrop-blur-md rounded-xl p-5 border transition-all duration-300 hover:shadow-xl">
-              <h3 className="config-text-primary text-base font-bold mb-3">{t('settings.accountActions')}</h3>
-              <div className="space-y-3">
-                <button 
-                  onClick={() => setShowPasswordModal(true)}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:shadow-md font-medium"
-                  style={{backgroundColor: 'rgba(246, 250, 0, 0.1)', color: '#000', border: '1px solid rgba(246, 250, 0, 0.3)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(246, 250, 0, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(246, 250, 0, 0.1)'}
+            {/* Acciones */}
+            <div style={cardStyle}>
+              <h2 style={{ margin: "0 0 12px", fontSize: 15, fontWeight: 800, color: C.text }}>{L("cuenta")}</h2>
+              {[
+                {
+                  label: L("cambiarPass"), Icon: Key, color: "#FF6600", bg: tema === "oscuro" ? "#2a1a0f" : "#fff7ed",
+                  action: () => setShowPass(true),
+                },
+                {
+                  label: L("exportar"), Icon: Download, color: C.primary, bg: C.priLight,
+                  action: () => {
+                    const d = localStorage.getItem("mm_config") || "{}";
+                    const a = document.createElement("a");
+                    a.href = "data:application/json;charset=utf-8," + encodeURIComponent(d);
+                    a.download = `config-${new Date().toISOString().slice(0,10)}.json`;
+                    a.click();
+                  },
+                },
+                {
+                  label: L("historial"), Icon: Database, color: "#16a34a", bg: tema === "oscuro" ? "#0d1f10" : "#f0fdf4",
+                  action: () => alert("Próximamente"),
+                },
+              ].map(a => (
+                <button key={a.label} onClick={a.action} style={{
+                  display: "flex", alignItems: "center", gap: 12, width: "100%",
+                  padding: "12px 14px", borderRadius: 12, marginBottom: 8,
+                  background: a.bg, border: `1px solid ${a.color}30`,
+                  color: a.color, fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  transition: "opacity 0.2s",
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = "0.8")}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = "1")}
                 >
-                  <Key size={18} style={{color: '#FF6600'}} />
-                  {t('settings.changePassword')}
+                  <a.Icon size={15} />{a.label}
                 </button>
-                <button 
-                  onClick={exportData}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:shadow-md font-medium"
-                  style={{backgroundColor: 'rgba(152, 81, 249, 0.1)', color: '#9851F9', border: '1px solid rgba(152, 81, 249, 0.3)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(152, 81, 249, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(152, 81, 249, 0.1)'}
-                >
-                  <Download size={18} />
-                  {t('settings.exportData')}
-                </button>
-                <button 
-                  className="w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-300 hover:shadow-md font-medium"
-                  style={{backgroundColor: 'rgba(255, 102, 0, 0.1)', color: '#FF6600', border: '1px solid rgba(255, 102, 0, 0.3)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.1)'}
-                >
-                  <Database size={18} />
-                  {t('settings.downloadHistory')}
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Modal 2FA */}
-        {show2FAModal && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="config-card backdrop-blur-md rounded-xl p-6 max-w-md w-full border-2 transition-all duration-300 hover:shadow-2xl" style={{borderColor: 'rgba(152, 81, 249, 0.3)'}}>
-              <div className="flex items-center gap-3 mb-4">
-                <Shield size={24} style={{color: '#28FB4B'}} />
-                <h3 className="config-text-primary text-lg font-bold">{t('settings.activate2FA')}</h3>
-              </div>
-              <p className="config-text-secondary mb-4 text-sm">
-                {t('settings.scanQR')}
-              </p>
-              <div className="bg-white p-4 rounded-lg mb-4 flex justify-center shadow-lg">
-                <div className="w-32 h-32 bg-gray-200 flex items-center justify-center rounded-lg">
-                  <div className="text-center text-gray-700">
-                    <div className="text-xs mb-1 font-semibold">QR CODE</div>
-                    <div className="text-xs">2FA-TELECOMB2B</div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={activate2FA}
-                  className="flex-1 py-2 rounded-lg transition-all duration-300 hover:shadow-lg font-medium text-white"
-                  style={{backgroundColor: '#28FB4B', border: '1px solid #28FB4B'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1EDB3B'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28FB4B'}
-                >
-                  {t('common.confirm')}
-                </button>
-                <button
-                  onClick={() => setShow2FAModal(false)}
-                  className="flex-1 py-2 rounded-lg transition-all duration-300 hover:shadow-lg font-medium"
-                  style={{backgroundColor: 'rgba(255, 102, 0, 0.1)', color: '#FF6600', border: '1px solid rgba(255, 102, 0, 0.3)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.1)'}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Cambiar Contraseña */}
-        {showPasswordModal && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="config-card backdrop-blur-md rounded-xl p-6 max-w-md w-full border-2 transition-all duration-300 hover:shadow-2xl" style={{borderColor: 'rgba(246, 250, 0, 0.3)'}}>
-              <div className="flex items-center gap-3 mb-4">
-                <Key size={24} style={{color: '#FF6600'}} />
-                <h3 className="config-text-primary text-lg font-bold">{t('settings.changePasswordTitle')}</h3>
-              </div>
-              
-              <div className="space-y-3 mb-6">
-                <div>
-                  <label className="config-text-primary text-sm block mb-1 font-medium">{t('settings.currentPassword')}</label>
-                  <input
-                    type="password"
-                    value={passwordData.current}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm transition-all duration-300 focus:shadow-lg"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label className="text-white text-sm block mb-1">{t('settings.newPassword')}</label>
-                  <label className="config-text-primary text-sm block mb-1 font-medium">{t('settings.newPassword')}</label>
-                  <input
-                    type="password"
-                    value={passwordData.new}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm transition-all duration-300 focus:shadow-lg"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div>
-                  <label className="text-white text-sm block mb-1">{t('settings.confirmPassword')}</label>
-                  <label className="config-text-primary text-sm block mb-1 font-medium">{t('settings.confirmPassword')}</label>
-                  <input
-                    type="password"
-                    value={passwordData.confirm}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
-                    className="config-input w-full rounded-lg px-3 py-2 text-sm transition-all duration-300 focus:shadow-lg"
-                    placeholder="••••••••"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handlePasswordChange}
-                  className="flex-1 py-2 rounded-lg transition-all duration-300 hover:shadow-lg font-medium text-white"
-                  style={{backgroundColor: '#F6FA00', color: '#000', border: '1px solid #F6FA00'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E5E900'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F6FA00'}
-                >
-                  {t('common.update')}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPasswordModal(false);
-                    setPasswordData({ current: '', new: '', confirm: '' });
-                  }}
-                  className="flex-1 py-2 rounded-lg transition-all duration-300 hover:shadow-lg font-medium"
-                  style={{backgroundColor: 'rgba(255, 102, 0, 0.1)', color: '#FF6600', border: '1px solid rgba(255, 102, 0, 0.3)'}}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.2)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 102, 0, 0.1)'}
-                >
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Botón guardar */}
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={() => save()} style={{
+            padding: "12px 32px", borderRadius: 13,
+            background: `linear-gradient(135deg, ${C.primary}, ${tema === "oscuro" ? "#7c3aed" : "#5b21b6"})`,
+            color: "#fff", border: "none", fontSize: 14, fontWeight: 800,
+            cursor: "pointer", boxShadow: C.shadow,
+          }}>
+            {L("guardar")}
+          </button>
+        </div>
       </div>
-    </>
+
+      {/* ── Modal 2FA ── */}
+      {show2FA && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, maxWidth: 360, width: "100%", boxShadow: C.shadow }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+              <Shield size={20} style={{ color: "#22c55e" }} />
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text }}>Activar 2FA</h3>
+            </div>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: C.textSec, lineHeight: 1.5 }}>
+              Escanea el código QR con Google Authenticator o Authy.
+            </p>
+            <div style={{ background: "#fff", padding: 16, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <div style={{ width: 90, height: 90, background: "#f3f4f6", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#374151" }}>QR CODE</span>
+                <span style={{ fontSize: 9, color: "#9ca3af" }}>2FA-MUNDOMMOVIL</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setTwoFA(true); save({ twoFA: true }); setShow2FA(false); }} style={{ flex: 1, padding: 11, borderRadius: 11, background: "#22c55e", color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>{L("confirmar")}</button>
+              <button onClick={() => setShow2FA(false)} style={{ flex: 1, padding: 11, borderRadius: 11, background: C.bgInput, color: C.text, border: `1px solid ${C.border}`, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>{L("cancelar")}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Contraseña ── */}
+      {showPass && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, maxWidth: 360, width: "100%", boxShadow: C.shadow }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+              <Key size={20} style={{ color: "#FF6600" }} />
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text }}>{L("cambiarPass")}</h3>
+            </div>
+            {([
+              { key: "actual", label: L("passActual") },
+              { key: "nueva",  label: L("passNueva") },
+              { key: "confirm",label: L("passConfirmar") },
+            ] as const).map(f => (
+              <div key={f.key} style={{ marginBottom: 12 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: C.textSec, marginBottom: 5 }}>{f.label}</label>
+                <input type="password" value={pass[f.key]}
+                  onChange={e => setPass(p => ({ ...p, [f.key]: e.target.value }))}
+                  placeholder="••••••••"
+                  style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = C.primary}
+                  onBlur={e => e.target.style.borderColor = C.border}
+                />
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button onClick={() => {
+                if (pass.nueva !== pass.confirm) { alert("Las contraseñas no coinciden"); return; }
+                if (pass.nueva.length < 6) { alert("Mínimo 6 caracteres"); return; }
+                setShowPass(false); setPass({ actual: "", nueva: "", confirm: "" }); alert("✅ Contraseña actualizada");
+              }} style={{ flex: 1, padding: 11, borderRadius: 11, background: C.primary, color: "#fff", border: "none", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+                {L("actualizar")}
+              </button>
+              <button onClick={() => { setShowPass(false); setPass({ actual: "", nueva: "", confirm: "" }); }} style={{ flex: 1, padding: 11, borderRadius: 11, background: C.bgInput, color: C.text, border: `1px solid ${C.border}`, fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+                {L("cancelar")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn { from { opacity:0; transform:translateX(16px) } to { opacity:1; transform:translateX(0) } }
+        * { box-sizing: border-box; }
+      `}</style>
+    </div>
   );
 }

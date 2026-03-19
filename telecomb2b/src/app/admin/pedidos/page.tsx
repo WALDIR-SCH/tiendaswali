@@ -294,7 +294,7 @@ function ModalDetalle({ pedido, productos, onClose, onActualizarEnvio }: {
                           SKU: {item.sku || "—"} · Cant: {item.cantidad}
                           {prod && ` · Stock disponible: ${prod.stock}`}
                         </p>
-                        {!ok && <p style={{ margin:"2px 0 0", fontSize:11, color:C.red, fontWeight:700 }}>⚠ Stock insuficiente</p>}
+                        {/* {!ok && <p style={{ margin:"2px 0 0", fontSize:11, color:C.red, fontWeight:700 }}>⚠ Stock insuficiente</p>} */}
                       </div>
                     </div>
                     <p style={{ fontSize:14, fontWeight:800, color:C.purple }}>{fmtPEN((item.precio || 0) * (item.cantidad || 1))}</p>

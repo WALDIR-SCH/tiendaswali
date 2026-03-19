@@ -1,7 +1,7 @@
 "use client";
 // src/app/layout.tsx
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
@@ -16,120 +16,154 @@ import { useLanguage } from "@/context/LanguageContext";
 import MiniCart from "@/components/MiniCart";
 import {
   ChevronDown, User, LogOut, ShoppingCart,
-  ShieldCheck, UserPlus, LayoutGrid, Building, Mail,
+  ShieldCheck, LayoutGrid, Building, Mail,
   Settings, Package, FileText, CreditCard, Bell,
   Globe, Menu, X, Star, Check,
-  Truck, AlertCircle, Info, Search,
+  Truck, AlertCircle, Info, Search, CheckCircle, Moon, Sun,
 } from "lucide-react";
 
 const dmSans = DM_Sans({
-  subsets: ["latin"],
-  display: "swap",
+  subsets: ["latin"], display: "swap",
   variable: "--font-dm-sans",
   weight: ["400", "500", "600", "700", "800", "900"],
 });
 
-const V = "#7c3aed";
-const O = "#FF6600";
-const G = "#28FB4B";
+/* ─── PALETA POR TEMA ─── */
+const TEMAS = {
+  claro: {
+    bgCard: "#ffffff", bgInput: "#f3f4f6", bgNav: "#ffffff",
+    text: "#111827", textSec: "#6b7280", textMuted: "#9ca3af",
+    border: "#e5e7eb", shadow: "rgba(0,0,0,0.07)",
+    primary: "#7c3aed", priLight: "#f5f3ff",
+    orange: "#FF6600",
+  },
+  oscuro: {
+    bgCard: "#1e1e2e", bgInput: "#252535", bgNav: "#141420",
+    text: "#f1f1f5", textSec: "#a8a8c0", textMuted: "#6b6b80",
+    border: "#2e2e42", shadow: "rgba(0,0,0,0.4)",
+    primary: "#9b5cf6", priLight: "#1e1228",
+    orange: "#ff7a20",
+  },
+};
 
+type TemaKey = keyof typeof TEMAS;
+
+/* Aplica estilos directamente al DOM — sin ThemeContext ni globals */
+function applyTheme(tema: TemaKey) {
+  const T = TEMAS[tema];
+  const r = document.documentElement;
+  r.setAttribute("data-theme", tema);
+  tema === "oscuro" ? r.classList.add("dark") : r.classList.remove("dark");
+  document.body.style.backgroundColor = tema === "oscuro" ? "#0f0f13" : "#f9fafb";
+  document.body.style.color = T.text;
+  document.body.style.transition = "background-color 0.3s, color 0.3s";
+}
+
+/* ─── NOTIFICACIONES ─── */
 interface Notif {
-  id: string;
-  tipo: "pedido_nuevo"|"pedido_enviado"|"pedido_entregado"|"pedido_cancelado"|"sistema";
-  titulo: string; mensaje: string; fecha: Date; leida: boolean; pedidoId?: string;
+  id: string; tipo: string; titulo: string; mensaje: string;
+  fecha: Date; leida: boolean; pedidoId?: string; cotizacionId?: string;
 }
 
 const tiempoRelativo = (d: Date) => {
   const s = (Date.now() - d.getTime()) / 1000;
-  if (s < 60) return "ahora mismo";
-  if (s < 3600) return `hace ${Math.floor(s/60)} min`;
+  if (s < 60)    return "ahora mismo";
+  if (s < 3600)  return `hace ${Math.floor(s/60)} min`;
   if (s < 86400) return `hace ${Math.floor(s/3600)}h`;
   return `hace ${Math.floor(s/86400)} días`;
 };
-const getInitials = (n: string) => n.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 
-const NotifIcon = ({ tipo }: { tipo: Notif["tipo"] }) => {
-  const map: Record<string,{icon:any;color:string}> = {
-    pedido_nuevo:{icon:Package,color:V}, pedido_enviado:{icon:Truck,color:G},
-    pedido_entregado:{icon:Check,color:G}, pedido_cancelado:{icon:AlertCircle,color:"#ef4444"},
-    sistema:{icon:Info,color:O},
+const getInitials = (n: string) => n.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+
+const NotifIcon = ({ tipo }: { tipo: string }) => {
+  const m: Record<string, { icon: any; color: string }> = {
+    pedido_nuevo:          { icon: Package,     color: "#7c3aed" },
+    pedido_enviado:        { icon: Truck,       color: "#16a34a" },
+    pedido_entregado:      { icon: Check,       color: "#16a34a" },
+    pedido_cancelado:      { icon: AlertCircle, color: "#ef4444" },
+    cotizacion_respondida: { icon: FileText,    color: "#7c3aed" },
+    cotizacion_aprobada:   { icon: CheckCircle, color: "#16a34a" },
+    cotizacion_pendiente:  { icon: FileText,    color: "#FF6600" },
+    sistema:               { icon: Info,        color: "#FF6600" },
   };
-  const {icon:Icon,color} = map[tipo]??map.sistema;
+  const { icon: Icon, color } = m[tipo] ?? m.sistema;
   return (
-    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{background:`${color}18`}}>
-      <Icon size={14} style={{color}}/>
+    <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <Icon size={14} style={{ color }} />
     </div>
   );
 };
 
-// ─── LOGO ─────────────────────────────────────────────────────────────────────
-const Logo = () => {
+/* ─── LOGO ─── */
+const Logo = ({ C }: { C: typeof TEMAS.claro }) => {
   const [hov, setHov] = useState(false);
   return (
-    <Link href="/" className="flex items-center gap-3 shrink-0 select-none"
-      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}>
-
-      {/* Icono limpio */}
-      <div className="shrink-0 transition-transform duration-300" style={{ transform: hov ? "scale(1.1)" : "scale(1)" }}>
-        <img
-          src="/images/icono.ico"
-          alt="Mundo Móvil"
-          style={{ width:"44px", height:"44px", objectFit:"contain" }}
-          onError={e=>{
-            const el = e.target as HTMLImageElement;
-            el.style.display="none";
-            const sp = document.createElement("span");
-            sp.style.fontSize="30px";
-            sp.textContent="📱";
-            el.parentElement?.appendChild(sp);
-          }}
+    <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", userSelect: "none" }}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
+      <div style={{ transform: hov ? "scale(1.08)" : "scale(1)", transition: "transform 0.25s" }}>
+        <img src="/images/icono.ico" alt="Mundo Móvil" style={{ width: 42, height: 42, objectFit: "contain" }}
+          onError={e => { (e.target as HTMLImageElement).style.display = "none"; const s = document.createElement("span"); s.textContent = "📱"; s.style.fontSize = "28px"; (e.target as HTMLImageElement).parentElement?.appendChild(s); }}
         />
       </div>
-
-      {/* Texto — colores sólidos, siempre visible */}
-      <div className="flex flex-col leading-none">
-        <div className="flex items-baseline gap-0" style={{ lineHeight: 1 }}>
-          <span style={{
-            fontSize: "18px",
-            fontWeight: 900,
-            color: "#111827",
-            letterSpacing: "-0.03em",
-            transition: "color 0.2s",
-            ...(hov && { color: "#374151" }),
-          }}>
-            MUNDO&nbsp;
-          </span>
-          <span style={{
-            fontSize: "18px",
-            fontWeight: 900,
-            color: V,
-            letterSpacing: "-0.03em",
-          }}>
-            MÓVIL
-          </span>
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+        <div>
+          <span style={{ fontSize: 17, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", transition: "color 0.2s" }}>MUNDO </span>
+          <span style={{ fontSize: 17, fontWeight: 900, color: C.primary, letterSpacing: "-0.03em" }}>MÓVIL</span>
         </div>
-        <span style={{
-          fontSize: "8px",
-          color: "#9ca3af",
-          letterSpacing: "0.25em",
-          fontWeight: 700,
-          marginTop: "3px",
-          textTransform: "uppercase" as const,
-        }}>
-          Smartphones
-        </span>
+        <span style={{ fontSize: 7, color: C.textMuted, letterSpacing: "0.25em", fontWeight: 700, marginTop: 3, textTransform: "uppercase" }}>Smartphones</span>
       </div>
     </Link>
   );
 };
 
-// ─── NAVBAR ───────────────────────────────────────────────────────────────────
+/* ─── NAVBAR ─── */
 function Navbar() {
   const pathname = usePathname();
   const router   = useRouter();
   const { totalArticulos, abrirCarrito } = useCart();
   const { language, setLanguage, t }     = useLanguage();
 
+  /* ── TEMA desde localStorage (sin contexto externo) ── */
+  const [tema, setTemaState] = useState<TemaKey>("claro");
+
+  // Leer tema al montar
+  useEffect(() => {
+    const saved = (localStorage.getItem("mm_tema") || "claro") as TemaKey;
+    const valid: TemaKey = saved === "oscuro" ? "oscuro" : "claro";
+    setTemaState(valid);
+    applyTheme(valid);
+  }, []);
+
+  // Escuchar cambios de tema desde la página de configuración
+  useEffect(() => {
+    const fn = () => {
+      const saved = (localStorage.getItem("mm_tema") || "claro") as TemaKey;
+      const valid: TemaKey = saved === "oscuro" ? "oscuro" : "claro";
+      setTemaState(valid);
+      applyTheme(valid);
+    };
+    window.addEventListener("storage", fn);
+    // También escuchar evento custom
+    window.addEventListener("themeChanged", fn);
+    return () => { window.removeEventListener("storage", fn); window.removeEventListener("themeChanged", fn); };
+  }, []);
+
+  const toggleTema = () => {
+    const next: TemaKey = tema === "claro" ? "oscuro" : "claro";
+    setTemaState(next);
+    applyTheme(next);
+    localStorage.setItem("mm_tema", next);
+    // Sync con mm_config
+    try {
+      const cfg = JSON.parse(localStorage.getItem("mm_config") || "{}");
+      cfg.tema = next; localStorage.setItem("mm_config", JSON.stringify(cfg));
+    } catch {}
+    window.dispatchEvent(new Event("themeChanged"));
+  };
+
+  const C = TEMAS[tema];
+
+  /* ── ESTADO ── */
   const [usuario,    setUsuario]    = useState<FirebaseUser|null>(null);
   const [datosExtra, setDatosExtra] = useState<any>(null);
   const [menuOpen,   setMenuOpen]   = useState(false);
@@ -142,312 +176,390 @@ function Navbar() {
   const menuRef  = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  useEffect(()=>{
-    const fn=()=>setScrolled(window.scrollY>4);
-    window.addEventListener("scroll",fn);
-    return ()=>window.removeEventListener("scroll",fn);
-  },[]);
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 4);
+    window.addEventListener("scroll", fn);
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
 
-  useEffect(()=>{
-    const fn=(e:MouseEvent)=>{
-      if(menuRef.current&&!menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-      if(notifRef.current&&!notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+  useEffect(() => {
+    const fn = (e: MouseEvent) => {
+      if (menuRef.current  && !menuRef.current.contains(e.target as Node))  setMenuOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
     };
-    document.addEventListener("mousedown",fn);
-    return ()=>document.removeEventListener("mousedown",fn);
-  },[]);
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, []);
 
-  useEffect(()=>{
-    const unsub=onAuthStateChanged(auth,user=>{
+  /* ── Autenticación + Notificaciones ── */
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, user => {
       setUsuario(user);
-      if(!user){setDatosExtra(null);setNotifs([]);return;}
-      const unsubDoc=onSnapshot(doc(db,"usuarios",user.uid),snap=>{setDatosExtra(snap.exists()?snap.data():null);});
-      const q=query(collection(db,"pedidos"),where("clienteId","==",user.uid),limit(30));
-      const unsubP=onSnapshot(q,snap=>{
-        const docs=[...snap.docs].sort((a,b)=>{
-          const fa=a.data().fecha?.toDate?.()?.getTime()??0;
-          const fb=b.data().fecha?.toDate?.()?.getTime()??0;
-          return fb-fa;
-        });
-        const arr:Notif[]=[];
-        const now=Date.now();
-        docs.forEach(d=>{
-          const data=d.data();
-          const fecha=data.fecha?.toDate?data.fecha.toDate():new Date();
-          const est=(data.estado||"").toLowerCase();
-          const num=`#${d.id.slice(0,8).toUpperCase()}`;
-          if(now-fecha.getTime()<86400000) arr.push({id:`n-${d.id}`,tipo:"pedido_nuevo",titulo:"Pedido recibido",mensaje:`Tu pedido ${num} fue registrado`,fecha,leida:false,pedidoId:d.id});
-          if(est==="enviado"||est==="en camino") arr.push({id:`e-${d.id}`,tipo:"pedido_enviado",titulo:"¡Pedido en camino!",mensaje:`Pedido ${num} fue despachado`,fecha,leida:false,pedidoId:d.id});
-          if(est==="entregado") arr.push({id:`ent-${d.id}`,tipo:"pedido_entregado",titulo:"Pedido entregado ✓",mensaje:`Pedido ${num} entregado`,fecha,leida:true,pedidoId:d.id});
-          if(est==="cancelado") arr.push({id:`c-${d.id}`,tipo:"pedido_cancelado",titulo:"Pedido cancelado",mensaje:`Pedido ${num} fue cancelado`,fecha,leida:false,pedidoId:d.id});
-        });
-        arr.push({id:"sis-1",tipo:"sistema",titulo:"Catálogo actualizado",mensaje:"Nuevos modelos disponibles",fecha:new Date(),leida:true});
-        setNotifs(arr.slice(0,15));
-      },err=>{
-        console.warn("Navbar:",err.message);
-        setNotifs([{id:"sis-1",tipo:"sistema",titulo:"Catálogo actualizado",mensaje:"Nuevos modelos disponibles",fecha:new Date(),leida:true}]);
-      });
-      return ()=>{unsubDoc();unsubP();};
+      if (!user) { setDatosExtra(null); setNotifs([]); return; }
+      const unsubDoc = onSnapshot(doc(db, "usuarios", user.uid), snap => setDatosExtra(snap.exists() ? snap.data() : null));
+
+      const qP = query(collection(db, "pedidos"), where("clienteId", "==", user.uid), limit(30));
+      const unsubP = onSnapshot(qP, snap => {
+        const arrP: Notif[] = [];
+        const now = Date.now();
+        [...snap.docs].sort((a, b) => (b.data().fecha?.toDate?.()?.getTime()??0)-(a.data().fecha?.toDate?.()?.getTime()??0))
+          .forEach(d => {
+            const data = d.data(); const fecha = data.fecha?.toDate ? data.fecha.toDate() : new Date();
+            const est = (data.estado||"").toLowerCase(); const num = `#${d.id.slice(0,8).toUpperCase()}`;
+            if (now - fecha.getTime() < 86400000) arrP.push({ id:`n-${d.id}`, tipo:"pedido_nuevo",     titulo:"Pedido recibido",    mensaje:`Tu pedido ${num} fue registrado`, fecha, leida:false, pedidoId:d.id });
+            if (est==="enviado"||est==="en camino") arrP.push({ id:`e-${d.id}`, tipo:"pedido_enviado",   titulo:"¡Pedido en camino!", mensaje:`Pedido ${num} fue despachado`,     fecha, leida:false, pedidoId:d.id });
+            if (est==="entregado")                  arrP.push({ id:`ent-${d.id}`,tipo:"pedido_entregado",titulo:"Pedido entregado ✓", mensaje:`Pedido ${num} entregado`,          fecha, leida:true,  pedidoId:d.id });
+            if (est==="cancelado")                  arrP.push({ id:`c-${d.id}`, tipo:"pedido_cancelado", titulo:"Pedido cancelado",   mensaje:`Pedido ${num} fue cancelado`,      fecha, leida:false, pedidoId:d.id });
+          });
+
+        const qC = query(collection(db, "cotizaciones"), where("clienteId", "==", user.uid), limit(20));
+        const unsubC = onSnapshot(qC, snapC => {
+          const arrC: Notif[] = [];
+          snapC.docs.forEach(d => {
+            const data = d.data(); const fecha = data.fecha?.toDate ? data.fecha.toDate() : new Date();
+            const est = (data.estado||"").toLowerCase(); const num = data.numero||`#${d.id.slice(0,6).toUpperCase()}`;
+            const noLeida = data.leidoPorCliente === false;
+            if (est==="respondida"&&noLeida)                       arrC.push({ id:`cr-${d.id}`, tipo:"cotizacion_respondida", titulo:"💬 ¡Cotización respondida!", mensaje:`${num} — Tu asesor envió precios`, fecha, leida:false, cotizacionId:d.id });
+            else if (est==="aprobada")                             arrC.push({ id:`ca-${d.id}`, tipo:"cotizacion_aprobada",   titulo:"✅ Cotización aprobada",     mensaje:`${num} fue aprobada`,             fecha, leida:!noLeida, cotizacionId:d.id });
+            else if ((est==="pendiente"||est==="en_revision")&&noLeida) arrC.push({ id:`cp-${d.id}`, tipo:"cotizacion_pendiente",  titulo:"📋 En revisión",            mensaje:`${num} está siendo revisada`,    fecha, leida:false, cotizacionId:d.id });
+          });
+          setNotifs([...arrP,...arrC].sort((a,b)=>b.fecha.getTime()-a.fecha.getTime()).slice(0,20));
+        }, () => setNotifs(arrP.slice(0,15)));
+        return () => unsubC();
+      }, () => setNotifs([{ id:"s1", tipo:"sistema", titulo:"Catálogo actualizado", mensaje:"Nuevos modelos disponibles", fecha:new Date(), leida:true }]));
+      return () => { unsubDoc(); unsubP(); };
     });
-    return ()=>unsub();
-  },[]);
+    return () => unsub();
+  }, []);
 
-  useEffect(()=>{
-    const fn=(e:CustomEvent)=>{if(e.detail&&e.detail!==language)setLanguage(e.detail);};
-    window.addEventListener("languageChanged",fn as EventListener);
-    return ()=>window.removeEventListener("languageChanged",fn as EventListener);
-  },[language,setLanguage]);
+  useEffect(() => {
+    const fn = (e: CustomEvent) => { if (e.detail && e.detail !== language) setLanguage(e.detail); };
+    window.addEventListener("languageChanged", fn as EventListener);
+    return () => window.removeEventListener("languageChanged", fn as EventListener);
+  }, [language, setLanguage]);
 
-  const handleLogout=async()=>{await signOut(auth);setMenuOpen(false);setMobileOpen(false);router.push("/");};
-  const marcarLeidas=()=>setNotifs(p=>p.map(n=>({...n,leida:true})));
-  const noLeidas=notifs.filter(n=>!n.leida).length;
-  const toggleLang=()=>setLanguage(language==="es"?"en":"es");
+  const handleLogout = async () => { await signOut(auth); setMenuOpen(false); setMobileOpen(false); router.push("/"); };
+  const marcarLeidas = () => setNotifs(p => p.map(n => ({ ...n, leida: true })));
+  const noLeidas     = notifs.filter(n => !n.leida).length;
+  const cotBadge     = notifs.filter(n => n.tipo.startsWith("cotizacion") && !n.leida).length;
 
-  if(pathname.startsWith("/admin")) return null;
-
-  const nombre=datosExtra?.nombre||usuario?.displayName||"Usuario";
-  const nombreEmpresa=datosExtra?.nombreComercial||datosExtra?.razonSocial||"";
-  const cargo=datosExtra?.cargo||"Cliente";
-  const rol=datosExtra?.rol||"cliente";
-
-  const dropStyle:React.CSSProperties={
-    background:"#ffffff", border:"1px solid #e5e7eb",
-    boxShadow:"0 20px 60px rgba(0,0,0,0.10),0 4px 16px rgba(124,58,237,0.06)",
-    borderRadius:"16px",
+  const cycleIdiomaNav = () => {
+    const next = language === "es" ? "en" : language === "en" ? "pt" : "es";
+    setLanguage(next);
+    try { const cfg = JSON.parse(localStorage.getItem("mm_config")||"{}"); cfg.idioma=next; localStorage.setItem("mm_config",JSON.stringify(cfg)); } catch {}
   };
 
-  const MI=({href,icon:Icon,label,desc,onClick,danger}:{href?:string;icon:any;label:string;desc?:string;onClick?:()=>void;danger?:boolean})=>{
-    const inner=(
-      <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer ${danger?"hover:bg-red-50":"hover:bg-violet-50"}`}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:danger?"#fee2e2":"#f5f3ff"}}>
-          <Icon size={14} style={{color:danger?"#ef4444":V}}/>
+  const handleClickNotif = (n: Notif) => {
+    setNotifs(p => p.map(x => x.id === n.id ? { ...x, leida: true } : x));
+    setNotifOpen(false);
+    if (n.cotizacionId) router.push("/opciones/cotizaciones");
+    else if (n.pedidoId) router.push("/opciones/pedidos");
+  };
+
+  if (pathname.startsWith("/admin")) return null;
+
+  const nombre        = datosExtra?.nombre       || usuario?.displayName || "Usuario";
+  const nombreEmpresa = datosExtra?.nombreComercial || datosExtra?.razonSocial || "";
+  const cargo         = datosExtra?.cargo || "Cliente";
+  const rol           = datosExtra?.rol   || "cliente";
+  const langLabels: Record<string, string> = { es: "ES", en: "EN", pt: "PT" };
+  const langTx: Record<string, Record<string, string>> = {
+    catalogo: { es:"Catálogo", en:"Catalog",  pt:"Catálogo"  },
+    marcas:   { es:"Marcas",   en:"Brands",   pt:"Marcas"    },
+    servicios:{ es:"Servicios",en:"Services", pt:"Serviços"  },
+    acceder:  { es:"Acceder",  en:"Sign In",  pt:"Entrar"    },
+    registro: { es:"Registrarse",en:"Sign Up",pt:"Registrar" },
+    cerrar:   { es:"Cerrar Sesión",en:"Sign Out",pt:"Sair"   },
+    buscar:   { es:"Buscar celular, marca...",en:"Search phone, brand...",pt:"Buscar celular, marca..." },
+    pedidos:  { es:"Mis pedidos →",en:"My orders →",pt:"Meus pedidos →" },
+    cotiz:    { es:"Mis cotizaciones →",en:"My quotes →",pt:"Minhas cotações →" },
+    notifs:   { es:"Notificaciones",en:"Notifications",pt:"Notificações" },
+    marcar:   { es:"Marcar leídas",en:"Mark read",pt:"Marcar lidas" },
+    sinNotif: { es:"Sin notificaciones",en:"No notifications",pt:"Sem notificações" },
+  };
+  const Tx = (k: string) => langTx[k]?.[language] ?? langTx[k]?.["es"] ?? k;
+
+  const navBg     = `${C.bgNav}${scrolled ? "" : ""}`;
+  const navBorder = `1px solid ${scrolled ? C.border : C.border}`;
+  const navShadow = scrolled ? `0 2px 20px ${C.shadow}` : "none";
+
+  /* ── Menú item ── */
+  const MI = ({ href, icon: Icon, label, desc, onClick, danger, badge }: {
+    href?: string; icon: any; label: string; desc?: string;
+    onClick?: () => void; danger?: boolean; badge?: number;
+  }) => {
+    const [hov, setHov] = useState(false);
+    const inner = (
+      <div
+        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+        style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 11,
+          background: hov ? (danger ? "#fee2e218" : C.priLight) : "transparent",
+          cursor: "pointer", transition: "background 0.15s",
+        }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", background: danger ? "#fee2e2" : C.priLight }}>
+          <Icon size={13} style={{ color: danger ? "#ef4444" : C.primary }} />
+          {badge && badge > 0 ? (
+            <span style={{ position: "absolute", top: -4, right: -4, minWidth: 14, height: 14, background: C.orange, color: "#fff", borderRadius: 20, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 2px" }}>{badge}</span>
+          ) : null}
         </div>
         <div>
-          <p className={`text-sm font-semibold ${danger?"text-red-600":"text-gray-800"}`}>{label}</p>
-          {desc&&<p className="text-[11px] text-gray-400">{desc}</p>}
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: danger ? "#ef4444" : C.text }}>{label}</p>
+          {desc && <p style={{ margin: 0, fontSize: 10, color: C.textMuted }}>{desc}</p>}
         </div>
       </div>
     );
-    if(href) return <Link href={href} onClick={()=>{setMenuOpen(false);setMobileOpen(false);}}>{inner}</Link>;
-    return <button className="w-full text-left" onClick={onClick}>{inner}</button>;
+    if (href) return <Link href={href} onClick={() => { setMenuOpen(false); setMobileOpen(false); }} style={{ textDecoration: "none" }}>{inner}</Link>;
+    return <button style={{ width: "100%", textAlign: "left", background: "none", border: "none", padding: 0 }} onClick={onClick}>{inner}</button>;
   };
+
+  const iconBtn = (onClick: () => void, children: React.ReactNode, badge?: number) => (
+    <button onClick={onClick} style={{ position: "relative", width: 36, height: 36, borderRadius: 9, background: C.bgInput, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+      {children}
+      {badge != null && badge > 0 && (
+        <span style={{ position: "absolute", top: -5, right: -5, minWidth: 15, height: 15, background: C.orange, color: "#fff", borderRadius: 20, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </button>
+  );
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full z-30 transition-all duration-200"
-        style={{
-          background:"#ffffff",
-          borderBottom: scrolled?"1px solid #e5e7eb":"1px solid #f3f4f6",
-          boxShadow: scrolled?"0 2px 20px rgba(0,0,0,0.07)":"none",
-        }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center gap-4" style={{height:"66px"}}>
+      <nav style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 30, background: navBg, borderBottom: navBorder, boxShadow: navShadow, transition: "background 0.3s, box-shadow 0.3s" }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", gap: 12, height: 64 }}>
 
-            <Logo/>
+          <Logo C={C} />
 
-            {/* Buscador */}
-            <div className="hidden md:flex flex-1 max-w-xl relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-              <input type="text"
-                placeholder={language==="es"?"Buscar celular, marca o modelo...":"Search phone, brand or model..."}
-                value={search} onChange={e=>setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all"/>
-            </div>
+          {/* Buscador */}
+          <div style={{ flex: 1, maxWidth: 460, position: "relative", display: "none" }} className="md-search">
+            <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.textMuted }} />
+            <input type="text" placeholder={Tx("buscar")} value={search} onChange={e => setSearch(e.target.value)}
+              style={{ width: "100%", paddingLeft: 36, paddingRight: 12, paddingTop: 9, paddingBottom: 9, borderRadius: 11, border: `1.5px solid ${C.border}`, background: C.bgInput, color: C.text, fontSize: 13, outline: "none" }}
+              onFocus={e => e.target.style.borderColor = C.primary}
+              onBlur={e => e.target.style.borderColor = C.border}
+            />
+          </div>
 
-            {/* Nav links */}
-            <nav className="hidden md:flex items-center gap-1">
-              {usuario&&(
-                <Link href="/catalogo"
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${pathname==="/catalogo"?"bg-violet-50 text-violet-700":"text-gray-600 hover:text-violet-700 hover:bg-violet-50"}`}>
-                  {language==="es"?"Catálogo":"Catalog"}
-                </Link>
-              )}
-              <a href="#marcas" className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-violet-700 hover:bg-violet-50 transition-all">
-                {language==="es"?"Marcas":"Brands"}
-              </a>
-              <a href="#servicios" className="px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 hover:text-violet-700 hover:bg-violet-50 transition-all">
-                {language==="es"?"Servicios":"Services"}
-              </a>
-            </nav>
+          {/* Nav links */}
+          <nav style={{ display: "flex", alignItems: "center", gap: 2 }} className="md-nav">
+            {usuario && (
+              <Link href="/catalogo" style={{ padding: "7px 14px", borderRadius: 9, fontSize: 13, fontWeight: 600, color: pathname === "/catalogo" ? C.primary : C.textSec, background: pathname === "/catalogo" ? C.priLight : "transparent", textDecoration: "none" }}>
+                {Tx("catalogo")}
+              </Link>
+            )}
+            {["marcas","servicios"].map(k => (
+              <a key={k} href={`#${k}`} style={{ padding: "7px 14px", borderRadius: 9, fontSize: 13, fontWeight: 600, color: C.textSec, textDecoration: "none" }}>{Tx(k)}</a>
+            ))}
+          </nav>
 
-            {/* Acciones */}
-            <div className="flex items-center gap-2 ml-auto md:ml-0">
-              {/* Idioma */}
-              <button onClick={toggleLang}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-all border border-gray-200">
-                <Globe className="w-3.5 h-3.5" style={{color:V}}/>
-                {language==="es"?"ES":"EN"}
-              </button>
+          {/* Acciones */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
 
-              {usuario?(
-                <>
-                  {/* Carrito */}
-                  <button onClick={abrirCarrito} className="relative p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-all">
-                    <ShoppingCart className="w-5 h-5"/>
-                    {totalArticulos>0&&(
-                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[9px] font-black rounded-full flex items-center justify-center text-white" style={{background:O}}>{totalArticulos>9?"9+":totalArticulos}</span>
-                    )}
+            {/* Idioma */}
+            <button onClick={cycleIdiomaNav} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 11px", borderRadius: 9, fontSize: 11, fontWeight: 800, color: C.textSec, background: C.bgInput, border: `1.5px solid ${C.border}`, cursor: "pointer" }}>
+              <Globe size={12} style={{ color: C.primary }} />{langLabels[language] || "ES"}
+            </button>
+
+            {/* Tema toggle */}
+            <button onClick={toggleTema} title={tema === "claro" ? "Modo oscuro" : "Modo claro"}
+              style={{ width: 36, height: 36, borderRadius: 9, background: C.bgInput, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              {tema === "claro" ? <Moon size={14} style={{ color: C.textSec }} /> : <Sun size={14} style={{ color: "#f5c518" }} />}
+            </button>
+
+            {usuario ? (
+              <>
+                {/* Carrito */}
+                {iconBtn(abrirCarrito, <ShoppingCart size={15} style={{ color: C.textSec }} />, totalArticulos > 0 ? totalArticulos : undefined)}
+
+                {/* Notificaciones */}
+                <div ref={notifRef} style={{ position: "relative" }}>
+                  {iconBtn(() => setNotifOpen(!notifOpen), <Bell size={15} style={{ color: noLeidas > 0 ? C.primary : C.textSec, animation: noLeidas > 0 ? "bell-ring 2s ease-in-out infinite" : "none" }} />, noLeidas)}
+
+                  {notifOpen && (
+                    <>
+                      <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setNotifOpen(false)} />
+                      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 360, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: `0 20px 60px ${C.shadow}`, zIndex: 50, overflow: "hidden" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Bell size={14} style={{ color: C.primary }} />
+                            <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{Tx("notifs")}</span>
+                            {noLeidas > 0 && <span style={{ fontSize: 9, fontWeight: 800, padding: "2px 6px", borderRadius: 20, background: C.orange, color: "#fff" }}>{noLeidas}</span>}
+                          </div>
+                          {noLeidas > 0 && <button onClick={marcarLeidas} style={{ fontSize: 11, fontWeight: 600, color: C.primary, background: "none", border: "none", cursor: "pointer" }}>{Tx("marcar")}</button>}
+                        </div>
+                        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+                          {notifs.length === 0 ? (
+                            <div style={{ padding: 28, textAlign: "center", color: C.textMuted }}>
+                              <Bell size={22} style={{ margin: "0 auto 8px", display: "block", opacity: 0.3 }} />
+                              <p style={{ margin: 0, fontSize: 13 }}>{Tx("sinNotif")}</p>
+                            </div>
+                          ) : notifs.map(n => (
+                            <div key={n.id} onClick={() => handleClickNotif(n)}
+                              style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 16px", cursor: "pointer", borderBottom: `1px solid ${C.border}`, background: n.leida ? "transparent" : n.tipo.startsWith("cotizacion") ? C.priLight : `${C.primary}08`, opacity: n.leida ? 0.6 : 1 }}>
+                              <NotifIcon tipo={n.tipo} />
+                              <div style={{ flex: 1 }}>
+                                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: C.text }}>{n.titulo}</p>
+                                <p style={{ margin: "2px 0", fontSize: 11, color: C.textSec }}>{n.mensaje}</p>
+                                <p style={{ margin: 0, fontSize: 10, color: C.textMuted }}>{tiempoRelativo(n.fecha)}</p>
+                              </div>
+                              {!n.leida && <div style={{ width: 7, height: 7, borderRadius: "50%", background: n.tipo.startsWith("cotizacion") ? C.primary : C.orange, flexShrink: 0, marginTop: 4 }} />}
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "center", gap: 16, padding: "10px 16px", borderTop: `1px solid ${C.border}` }}>
+                          <Link href="/opciones/pedidos" onClick={() => setNotifOpen(false)} style={{ fontSize: 11, fontWeight: 600, color: C.primary, textDecoration: "none" }}>{Tx("pedidos")}</Link>
+                          <span style={{ color: C.border }}>|</span>
+                          <Link href="/opciones/cotizaciones" onClick={() => setNotifOpen(false)} style={{ fontSize: 11, fontWeight: 600, color: C.primary, textDecoration: "none" }}>{Tx("cotiz")}</Link>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Avatar */}
+                <div ref={menuRef} style={{ position: "relative" }}>
+                  <button onClick={() => setMenuOpen(!menuOpen)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "5px 8px", borderRadius: 10, background: "transparent", border: "none", cursor: "pointer" }}>
+                    <div style={{ position: "relative", width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: `2px solid ${C.primary}`, flexShrink: 0 }}>
+                      {datosExtra?.fotoPerfil
+                        ? <img src={datosExtra.fotoPerfil} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 900, color: "#fff", background: `linear-gradient(135deg,${C.primary},${C.orange})` }}>{getInitials(nombre)}</div>
+                      }
+                      {datosExtra?.verificado && <div style={{ position: "absolute", bottom: -1, right: -1, width: 11, height: 11, borderRadius: "50%", background: "#22c55e", display: "flex", alignItems: "center", justifyContent: "center" }}><ShieldCheck size={6} color="#fff" /></div>}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }} className="md-avatar-text">
+                      <span style={{ fontSize: 11, fontWeight: 800, color: C.text, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</span>
+                      <span style={{ fontSize: 9, color: C.textMuted }}>{cargo}</span>
+                    </div>
+                    <ChevronDown size={12} style={{ color: C.textMuted, transform: menuOpen ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }} />
                   </button>
 
-                  {/* Notificaciones */}
-                  <div className="relative" ref={notifRef}>
-                    <button onClick={()=>setNotifOpen(!notifOpen)} className="relative p-2.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-all">
-                      <Bell className="w-5 h-5" style={{animation:noLeidas>0?"bell-ring 2s ease-in-out infinite":"none"}}/>
-                      {noLeidas>0&&<span className="absolute -top-0.5 -right-0.5 w-4 h-4 text-[9px] font-black rounded-full flex items-center justify-center text-white" style={{background:O}}>{noLeidas>9?"9+":noLeidas}</span>}
-                    </button>
-                    {notifOpen&&(
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={()=>setNotifOpen(false)}/>
-                        <div className="absolute right-0 mt-2 w-80 z-50 overflow-hidden" style={dropStyle}>
-                          <div className="flex items-center justify-between px-4 py-3" style={{borderBottom:"1px solid #f3f4f6"}}>
-                            <div className="flex items-center gap-2">
-                              <Bell className="w-4 h-4" style={{color:V}}/>
-                              <span className="text-sm font-black text-gray-900">{language==="es"?"Notificaciones":"Notifications"}</span>
-                              {noLeidas>0&&<span className="text-[9px] font-black px-1.5 py-0.5 rounded-full text-white" style={{background:O}}>{noLeidas}</span>}
+                  {menuOpen && (
+                    <>
+                      <div style={{ position: "fixed", inset: 0, zIndex: 40 }} onClick={() => setMenuOpen(false)} />
+                      <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 278, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, boxShadow: `0 20px 60px ${C.shadow}`, zIndex: 50, overflow: "hidden" }}>
+                        {/* Header perfil */}
+                        <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 11, overflow: "hidden", border: `2px solid ${C.primary}`, flexShrink: 0 }}>
+                              {datosExtra?.fotoPerfil ? <img src={datosExtra.fotoPerfil} alt="av" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 900, color: "#fff", background: `linear-gradient(135deg,${C.primary},${C.orange})` }}>{getInitials(nombre)}</div>}
                             </div>
-                            {noLeidas>0&&<button onClick={marcarLeidas} className="text-[11px] font-semibold hover:underline" style={{color:V}}>{language==="es"?"Marcar leídas":"Mark as read"}</button>}
-                          </div>
-                          <div className="max-h-72 overflow-y-auto">
-                            {notifs.length===0
-                              ?<div className="p-6 text-center"><Bell className="w-6 h-6 text-gray-300 mx-auto mb-2"/><p className="text-sm text-gray-400">{language==="es"?"Sin notificaciones":"No notifications"}</p></div>
-                              :notifs.map(n=>(
-                              <div key={n.id}
-                                onClick={()=>{setNotifs(p=>p.map(x=>x.id===n.id?{...x,leida:true}:x));if(n.pedidoId){setNotifOpen(false);router.push("/opciones/pedidos");}}}
-                                className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-all"
-                                style={{borderBottom:"1px solid #f3f4f6",background:n.leida?"transparent":"#f5f3ff",opacity:n.leida?0.7:1}}>
-                                <NotifIcon tipo={n.tipo}/>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-gray-900">{n.titulo}</p>
-                                  <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed">{n.mensaje}</p>
-                                  <p className="text-[10px] text-gray-400 mt-0.5">{tiempoRelativo(n.fecha)}</p>
-                                </div>
-                                {!n.leida&&<div className="w-2 h-2 rounded-full shrink-0 mt-1" style={{background:V}}/>}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="px-4 py-2.5" style={{borderTop:"1px solid #f3f4f6"}}>
-                            <Link href="/opciones/pedidos" onClick={()=>setNotifOpen(false)} className="text-[11px] font-semibold flex items-center justify-center gap-1 hover:underline" style={{color:V}}>
-                              {language==="es"?"Ver todos mis pedidos →":"View all my orders →"}
-                            </Link>
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Avatar */}
-                  <div className="relative" ref={menuRef}>
-                    <button onClick={()=>setMenuOpen(!menuOpen)} className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-gray-100 transition-all">
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0" style={{border:`2px solid ${V}`}}>
-                        {datosExtra?.fotoPerfil
-                          ?<img src={datosExtra.fotoPerfil} alt="av" className="w-full h-full object-cover"/>
-                          :<div className="w-full h-full flex items-center justify-center text-xs font-black text-white" style={{background:`linear-gradient(135deg,${V},${O})`}}>{getInitials(nombre)}</div>
-                        }
-                        {datosExtra?.verificado&&<div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center" style={{background:G}}><ShieldCheck size={7} color="#000"/></div>}
-                      </div>
-                      <div className="hidden sm:flex flex-col items-start">
-                        <span className="text-xs font-black text-gray-900 truncate max-w-[80px]">{nombre}</span>
-                        <span className="text-[9px] text-gray-400 truncate max-w-[80px]">{cargo}</span>
-                      </div>
-                      <ChevronDown className="w-3.5 h-3.5 text-gray-400" style={{transform:menuOpen?"rotate(180deg)":"rotate(0)",transition:"transform 0.2s"}}/>
-                    </button>
-                    {menuOpen&&(
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={()=>setMenuOpen(false)}/>
-                        <div className="absolute right-0 mt-2 z-50 overflow-hidden" style={{...dropStyle,width:"288px"}}>
-                          <div className="p-4" style={{borderBottom:"1px solid #f3f4f6"}}>
-                            <div className="flex items-center gap-3">
-                              <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center shrink-0" style={{border:`2px solid ${V}`}}>
-                                {datosExtra?.fotoPerfil?<img src={datosExtra.fotoPerfil} alt="av" className="w-full h-full object-cover"/>:<div className="w-full h-full flex items-center justify-center text-base font-black text-white" style={{background:`linear-gradient(135deg,${V},${O})`}}>{getInitials(nombre)}</div>}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-black text-gray-900 truncate">{nombre}</p>
-                                {nombreEmpresa&&<p className="text-xs text-gray-500 truncate">{nombreEmpresa}</p>}
-                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-gray-100 text-gray-600">{cargo}</span>
-                                  {datosExtra?.verificado&&<span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5" style={{background:"#dcfce7",color:"#16a34a"}}><ShieldCheck size={8}/>{language==="es"?"Verificado":"Verified"}</span>}
-                                </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nombre}</p>
+                              {nombreEmpresa && <p style={{ margin: 0, fontSize: 11, color: C.textMuted, overflow: "hidden", textOverflow: "ellipsis" }}>{nombreEmpresa}</p>}
+                              <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 20, background: C.bgInput, color: C.textSec }}>{cargo}</span>
+                                {datosExtra?.verificado && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 20, background: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", gap: 2 }}><ShieldCheck size={7} />Ok</span>}
                               </div>
                             </div>
-                            {usuario?.email&&<div className="flex items-center gap-1.5 mt-2.5 text-xs text-gray-500"><Mail className="w-3 h-3" style={{color:V}}/><span className="truncate">{usuario.email}</span></div>}
                           </div>
-                          <div className="p-2">
-                            <MI href="/opciones/perfil"       icon={User}       label={t("menu.profile")||"Mi Perfil"}       desc="Ver y editar tu perfil"/>
-                            <MI href="/opciones/empresa"      icon={Building}   label={t("menu.company")||"Mi Empresa"}      desc="Gestionar datos"/>
-                            <MI href="/opciones/pedidos"      icon={Package}    label={t("menu.orders")||"Mis Pedidos"}      desc="Historial de compras"/>
-                            <MI href="/opciones/cotizaciones" icon={FileText}   label={t("menu.quotations")||"Cotizaciones"} desc="Gestionar cotizaciones"/>
-                            <MI href="/opciones/facturacion"  icon={CreditCard} label={t("menu.billing")||"Facturación"}    desc="Facturas y comprobantes"/>
-                            <div className="my-1 border-t border-gray-100"/>
-                            <MI href="/opciones/configuracion" icon={Settings}  label={t("menu.settings")||"Configuración"} desc="Ajustes de cuenta"/>
-                            {rol==="admin"&&<MI href="/admin" icon={Star} label="Panel Admin" desc="Gestión del sistema"/>}
-                            <MI icon={LogOut} label={language==="es"?"Cerrar Sesión":"Sign Out"} desc={language==="es"?"Salir de tu cuenta":"Exit your account"} onClick={handleLogout} danger/>
-                          </div>
+                          {usuario?.email && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11, color: C.textMuted }}>
+                              <Mail size={11} style={{ color: C.primary }} />
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{usuario.email}</span>
+                            </div>
+                          )}
                         </div>
-                      </>
-                    )}
-                  </div>
-                </>
-              ):(
-                <div className="hidden sm:flex items-center gap-2">
-                  <Link href="/login" className="px-4 py-2 rounded-xl text-sm font-bold text-gray-700 border border-gray-200 hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50 transition-all">
-                    {language==="es"?"Acceder":"Sign In"}
-                  </Link>
-                  <Link href="/register" className="px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90" style={{background:V}}>
-                    {language==="es"?"Registrarse":"Sign Up"}
-                  </Link>
+                        <div style={{ padding: 8 }}>
+                          <MI href="/opciones/perfil"        icon={User}       label={t("menu.profile")    || "Mi Perfil"}       desc="Ver y editar tu perfil" />
+                          <MI href="/opciones/empresa"       icon={Building}   label={t("menu.company")    || "Mi Empresa"}      desc="Gestionar datos" />
+                          <MI href="/opciones/pedidos"       icon={Package}    label={t("menu.orders")     || "Mis Pedidos"}      desc="Historial de compras" />
+                          <MI href="/opciones/cotizaciones"  icon={FileText}   label={t("menu.quotations") || "Cotizaciones"}     desc="Gestionar cotizaciones" badge={cotBadge} />
+                          <MI href="/opciones/facturacion"   icon={CreditCard} label={t("menu.billing")    || "Facturación"}      desc="Facturas y comprobantes" />
+                          <div style={{ margin: "4px 0", borderTop: `1px solid ${C.border}` }} />
+                          <MI href="/opciones/configuracion" icon={Settings}   label={t("menu.settings")   || "Configuración"}   desc="Ajustes de cuenta" />
+                          {rol === "admin" && <MI href="/admin" icon={Star} label="Panel Admin" desc="Gestión del sistema" />}
+                          <MI icon={LogOut} label={Tx("cerrar")} onClick={handleLogout} danger />
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              )}
+              </>
+            ) : (
+              <>
+                <Link href="/login" style={{ padding: "8px 14px", borderRadius: 9, fontSize: 13, fontWeight: 700, color: C.text, border: `1.5px solid ${C.border}`, background: "transparent", textDecoration: "none" }}>
+                  {Tx("acceder")}
+                </Link>
+                <Link href="/register" style={{ padding: "8px 14px", borderRadius: 9, fontSize: 13, fontWeight: 700, color: "#fff", background: C.primary, textDecoration: "none" }}>
+                  {Tx("registro")}
+                </Link>
+              </>
+            )}
 
-              <button onClick={()=>setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100 transition-all">
-                {mobileOpen?<X className="w-5 h-5"/>:<Menu className="w-5 h-5"/>}
-              </button>
-            </div>
+            {/* Hamburguesa */}
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="mobile-btn" style={{ width: 36, height: 36, borderRadius: 9, background: C.bgInput, border: `1.5px solid ${C.border}`, display: "none", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+              {mobileOpen ? <X size={16} style={{ color: C.textSec }} /> : <Menu size={16} style={{ color: C.textSec }} />}
+            </button>
           </div>
         </div>
 
-        {mobileOpen&&(
-          <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 space-y-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"/>
-              <input type="text" placeholder={language==="es"?"Buscar celular...":"Search phone..."} value={search} onChange={e=>setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-violet-300"/>
+        {/* Mobile menu */}
+        {mobileOpen && (
+          <div style={{ background: C.bgCard, borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ position: "relative" }}>
+              <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.textMuted }} />
+              <input type="text" placeholder={Tx("buscar")} value={search} onChange={e => setSearch(e.target.value)}
+                style={{ width: "100%", paddingLeft: 33, paddingRight: 12, paddingTop: 9, paddingBottom: 9, borderRadius: 10, border: `1.5px solid ${C.border}`, background: C.bgInput, color: C.text, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
             </div>
-            {usuario&&<Link href="/catalogo" onClick={()=>setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-violet-50 text-violet-700 font-semibold text-sm"><LayoutGrid className="w-4 h-4"/>{language==="es"?"Catálogo":"Catalog"}</Link>}
-            <a href="#marcas" onClick={()=>setMobileOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold text-sm block">{language==="es"?"Marcas":"Brands"}</a>
-            <button onClick={()=>{toggleLang();setMobileOpen(false);}} className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-gray-700 font-semibold text-sm w-full">
-              <Globe className="w-4 h-4" style={{color:V}}/>{language==="es"?"Switch to English":"Cambiar a Español"}
-            </button>
-            {!usuario&&(
-              <div className="flex gap-2 pt-1">
-                <Link href="/login" onClick={()=>setMobileOpen(false)} className="flex-1 py-2.5 text-center rounded-xl border border-gray-200 text-gray-700 font-bold text-sm">{language==="es"?"Acceder":"Sign In"}</Link>
-                <Link href="/register" onClick={()=>setMobileOpen(false)} className="flex-1 py-2.5 text-center rounded-xl text-white font-bold text-sm" style={{background:V}}>{language==="es"?"Registrarse":"Sign Up"}</Link>
+            {usuario && <Link href="/catalogo" onClick={() => setMobileOpen(false)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, background: C.priLight, color: C.primary, fontWeight: 600, fontSize: 13, textDecoration: "none" }}><LayoutGrid size={15} />{Tx("catalogo")}</Link>}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={cycleIdiomaNav} style={{ flex: 1, padding: 9, borderRadius: 9, background: C.bgInput, border: `1.5px solid ${C.border}`, color: C.text, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>🌐 {langLabels[language]}</button>
+              <button onClick={toggleTema} style={{ width: 38, height: 38, borderRadius: 9, background: C.bgInput, border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                {tema === "claro" ? <Moon size={14} style={{ color: C.textSec }} /> : <Sun size={14} style={{ color: "#f5c518" }} />}
+              </button>
+            </div>
+            {!usuario ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <Link href="/login" onClick={() => setMobileOpen(false)} style={{ flex: 1, padding: 10, textAlign: "center", borderRadius: 9, border: `1.5px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>{Tx("acceder")}</Link>
+                <Link href="/register" onClick={() => setMobileOpen(false)} style={{ flex: 1, padding: 10, textAlign: "center", borderRadius: 9, background: C.primary, color: "#fff", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>{Tx("registro")}</Link>
               </div>
+            ) : (
+              <button onClick={handleLogout} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 9, background: "#fee2e2", color: "#ef4444", fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}>
+                <LogOut size={14} />{Tx("cerrar")}
+              </button>
             )}
-            {usuario&&<button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-50 text-red-600 font-semibold text-sm"><LogOut className="w-4 h-4"/>{language==="es"?"Cerrar Sesión":"Sign Out"}</button>}
           </div>
         )}
 
         <style>{`
-          @keyframes bell-ring{0%,100%{transform:rotate(0);}10%{transform:rotate(15deg);}20%{transform:rotate(-12deg);}30%{transform:rotate(8deg);}40%{transform:rotate(-4deg);}50%{transform:rotate(0);}}
+          @keyframes bell-ring{0%,100%{transform:rotate(0)}10%{transform:rotate(14deg)}20%{transform:rotate(-11deg)}30%{transform:rotate(7deg)}40%{transform:rotate(-4deg)}50%{transform:rotate(0)}}
+          @media(min-width:768px){.md-search{display:flex!important}.md-nav{display:flex!important}.md-avatar-text{display:flex!important}}
+          .mobile-btn{display:flex!important}
+          @media(min-width:768px){.mobile-btn{display:none!important}}
         `}</style>
       </nav>
-      <div className="h-[66px]"/>
-      <MiniCart/>
+      <div style={{ height: 64 }} />
+      <MiniCart />
     </>
   );
 }
 
+/* ─── ROOT LAYOUT ─── */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={dmSans.variable}>
       <head>
-        <link rel="icon" href="/images/icono.ico"/>
+        <link rel="icon" href="/images/icono.ico" />
         <title>Mundo Móvil — Smartphones</title>
+        {/* Evita flash de tema incorrecto al cargar */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          try{
+            var t=localStorage.getItem('mm_tema')||'claro';
+            if(t==='oscuro'){
+              document.documentElement.classList.add('dark');
+              document.documentElement.setAttribute('data-theme','oscuro');
+              document.documentElement.style.colorScheme='dark';
+              document.body && (document.body.style.backgroundColor='#0f0f13');
+            }
+          }catch(e){}
+        `}} />
       </head>
-      <body className={`${dmSans.className} antialiased bg-white text-gray-900`}>
+      <body className={`${dmSans.className} antialiased`}>
         <LanguageProvider>
           <CartProvider>
-            <Navbar/>
+            <Navbar />
             <main className="min-h-screen">{children}</main>
           </CartProvider>
         </LanguageProvider>

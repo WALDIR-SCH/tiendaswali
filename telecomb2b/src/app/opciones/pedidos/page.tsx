@@ -19,6 +19,8 @@ import Link from "next/link";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+// 🔥 NUEVO IMPORT
+import { IMEINotifBanner, IMEIToastListener } from "./imei-components-cliente";
 
 const C = {
   purple:     "#9851F9",
@@ -643,565 +645,573 @@ export default function MisPedidosPage() {
   );
 
   return (
-    <div className="min-h-screen pt-6 pb-12 px-4 md:px-6" style={{ background:C.white }}>
-      <div className="max-w-6xl mx-auto">
+    <>
+      {/* 🔥 ToastListener agregado aquí */}
+      <IMEIToastListener />
+      
+      <div className="min-h-screen pt-6 pb-12 px-4 md:px-6" style={{ background:C.white }}>
+        <div className="max-w-6xl mx-auto">
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-black mb-1" style={{ color:C.gray900 }}>
-              Mis <span style={{ color:C.purple }}>Pedidos</span>
-            </h1>
-            <p className="text-sm" style={{ color:C.gray500 }}>
-              {pedidos.length} pedidos · {pedidosFiltrados.length} mostrados
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
-              style={{ background:`${C.purple}08`, borderColor:`${C.purple}20` }}>
-              <CalendarDays size={16} style={{ color:C.purple }} />
-              <div>
-                <p className="text-[10px] font-semibold" style={{ color:C.gray500 }}>Entrega prom.</p>
-                <p className="text-xs font-black" style={{ color:C.gray900 }}>
-                  {diasPromedioEntrega > 0 ? `${diasPromedioEntrega} días` : "Sin datos"}
-                </p>
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <h1 className="text-3xl font-black mb-1" style={{ color:C.gray900 }}>
+                Mis <span style={{ color:C.purple }}>Pedidos</span>
+              </h1>
+              <p className="text-sm" style={{ color:C.gray500 }}>
+                {pedidos.length} pedidos · {pedidosFiltrados.length} mostrados
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                style={{ background:`${C.purple}08`, borderColor:`${C.purple}20` }}>
+                <CalendarDays size={16} style={{ color:C.purple }} />
+                <div>
+                  <p className="text-[10px] font-semibold" style={{ color:C.gray500 }}>Entrega prom.</p>
+                  <p className="text-xs font-black" style={{ color:C.gray900 }}>
+                    {diasPromedioEntrega > 0 ? `${diasPromedioEntrega} días` : "Sin datos"}
+                  </p>
+                </div>
+              </div>
+              {/* Notificaciones */}
+              <div className="relative">
+                <button onClick={() => setNotifPanel(!notifPanel)}
+                  className="relative p-2.5 rounded-xl border transition-all"
+                  style={{ background:C.white, borderColor:C.gray200 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.purple; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.gray200; }}>
+                  <Bell size={18} style={{ color:C.gray600 }} />
+                  {noLeidas > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] font-black rounded-full flex items-center justify-center"
+                      style={{ background:C.orange, color:"#000" }}>{noLeidas}</span>
+                  )}
+                </button>
+                {notifPanel && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setNotifPanel(false)} />
+                    <div className="absolute right-0 mt-2 w-72 rounded-2xl shadow-xl z-40 border overflow-hidden"
+                      style={{ background:C.white, borderColor:C.gray200 }}>
+                      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom:`1px solid ${C.gray100}` }}>
+                        <span className="text-sm font-black" style={{ color:C.gray900 }}>Notificaciones</span>
+                        <button onClick={() => setNotifPanel(false)}><X size={15} style={{ color:C.gray400 }} /></button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {notifs.length === 0
+                          ? <p className="text-sm text-center p-6" style={{ color:C.gray400 }}>Sin notificaciones</p>
+                          : notifs.map(n => (
+                            <div key={n.id} className="px-4 py-3 cursor-pointer"
+                              style={{ borderBottom:`1px solid ${C.gray100}`, background:n.leida?C.white:`${C.purple}06` }}
+                              onClick={async () => {
+                              setNotifs(p => p.map(x => x.id===n.id?{...x,leida:true}:x));
+                              try { await updateDoc(doc(db,"notificaciones",n.id),{leida:true}); } catch {}
+                            }}>
+                              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
+                                <p className="text-xs font-bold" style={{ color:C.gray800, flex:1 }}>{n.msg || n.mensaje}</p>
+                                {!n.leida && <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1 ml-2" style={{ background:C.orange }} />}
+                              </div>
+                              {n.trackingNumber && (
+                                <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
+                                  <span style={{ fontSize:10, fontFamily:"monospace", fontWeight:700, color:C.purple, background:C.purpleBg, padding:"1px 6px", borderRadius:6 }}>
+                                    {n.trackingNumber}
+                                  </span>
+                                  {(() => {
+                                    const url = getTrackingUrl(n.trackingNumber, n.courier||"");
+                                    return url ? (
+                                      <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                                        style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none" }}>
+                                        Rastrear →
+                                      </a>
+                                    ) : null;
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-            {/* Notificaciones */}
-            <div className="relative">
-              <button onClick={() => setNotifPanel(!notifPanel)}
-                className="relative p-2.5 rounded-xl border transition-all"
-                style={{ background:C.white, borderColor:C.gray200 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.purple; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = C.gray200; }}>
-                <Bell size={18} style={{ color:C.gray600 }} />
-                {noLeidas > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 text-[8px] font-black rounded-full flex items-center justify-center"
-                    style={{ background:C.orange, color:"#000" }}>{noLeidas}</span>
-                )}
-              </button>
-              {notifPanel && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setNotifPanel(false)} />
-                  <div className="absolute right-0 mt-2 w-72 rounded-2xl shadow-xl z-40 border overflow-hidden"
-                    style={{ background:C.white, borderColor:C.gray200 }}>
-                    <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom:`1px solid ${C.gray100}` }}>
-                      <span className="text-sm font-black" style={{ color:C.gray900 }}>Notificaciones</span>
-                      <button onClick={() => setNotifPanel(false)}><X size={15} style={{ color:C.gray400 }} /></button>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <StatCard icon={Package}    label="Total Pedidos"     value={pedidos.length} color={C.purple} bg={`${C.purple}08`} />
+            <StatCard icon={DollarSign} label="Monto Total"       value={`S/ ${fmt(pedidos.reduce((s,p)=>s+(p.total||0),0))}`} color={C.green} bg={`${C.green}10`} />
+            <StatCard icon={Truck}      label="Activos"           value={pedidos.filter(p=>!["entregado","cancelado"].includes((p.estado||"").toLowerCase())).length} color={C.orange} bg={`${C.orange}10`} />
+            <StatCard icon={CreditCard} label="Crédito Pendiente" value={`S/ ${fmt(pedidos.filter(p=>p.plazoCredito&&p.estado!=="pagado").reduce((s,p)=>s+(p.total||0),0))}`} color={C.purple} bg={`${C.purple}08`} />
+          </div>
+
+          {/* Búsqueda y filtros */}
+          <div className="space-y-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2" size={17} style={{ color:C.gray400 }} />
+                <input type="text" placeholder="Buscar por ID, RUC, producto, guía..."
+                  value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all"
+                  style={{ background:C.white, borderColor:C.gray200, color:C.gray800 }}
+                  onFocus={e => e.currentTarget.style.borderColor = C.purple}
+                  onBlur={e => e.currentTarget.style.borderColor = C.gray200} />
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setShowFiltros(!showFiltros)}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold transition-all"
+                  style={{ background:showFiltros?C.purple:C.white, borderColor:showFiltros?C.purple:C.gray200, color:showFiltros?C.white:C.gray600 }}>
+                  <Filter size={15} />Filtros
+                </button>
+                <button onClick={exportarExcel}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold"
+                  style={{ background:`${C.green}10`, borderColor:`${C.green}30`, color:"#15803d" }}>
+                  <FileSpreadsheet size={15} />Excel
+                </button>
+              </div>
+            </div>
+
+            {showFiltros && (
+              <div className="rounded-2xl border p-5" style={{ background:C.gray100, borderColor:C.gray200 }}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label:"Fecha inicio", key:"fechaInicio", type:"date" },
+                    { label:"Fecha fin",    key:"fechaFin",    type:"date" },
+                    { label:"Monto mín.",   key:"montoMin",    type:"number", ph:"0.00" },
+                    { label:"Monto máx.",   key:"montoMax",    type:"number", ph:"0.00" },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="text-xs font-bold mb-1.5 block" style={{ color:C.gray600 }}>{f.label}</label>
+                      <input type={f.type} placeholder={f.ph}
+                        value={(filtrosAv as any)[f.key]}
+                        onChange={e => setFiltrosAv({...filtrosAv, [f.key]:e.target.value})}
+                        className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
+                        style={{ background:C.white, borderColor:C.gray200, color:C.gray800 }}
+                        onFocus={e => e.currentTarget.style.borderColor = C.purple}
+                        onBlur={e => e.currentTarget.style.borderColor = C.gray200} />
                     </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifs.length === 0
-                        ? <p className="text-sm text-center p-6" style={{ color:C.gray400 }}>Sin notificaciones</p>
-                        : notifs.map(n => (
-                          <div key={n.id} className="px-4 py-3 cursor-pointer"
-                            style={{ borderBottom:`1px solid ${C.gray100}`, background:n.leida?C.white:`${C.purple}06` }}
-                            onClick={async () => {
-                            setNotifs(p => p.map(x => x.id===n.id?{...x,leida:true}:x));
-                            try { await updateDoc(doc(db,"notificaciones",n.id),{leida:true}); } catch {}
-                          }}>
-                            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between" }}>
-                              <p className="text-xs font-bold" style={{ color:C.gray800, flex:1 }}>{n.msg || n.mensaje}</p>
-                              {!n.leida && <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1 ml-2" style={{ background:C.orange }} />}
-                            </div>
-                            {n.trackingNumber && (
-                              <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:4 }}>
-                                <span style={{ fontSize:10, fontFamily:"monospace", fontWeight:700, color:C.purple, background:C.purpleBg, padding:"1px 6px", borderRadius:6 }}>
-                                  {n.trackingNumber}
-                                </span>
-                                {(() => {
-                                  const url = getTrackingUrl(n.trackingNumber, n.courier||"");
-                                  return url ? (
-                                    <a href={url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                                      style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none" }}>
-                                      Rastrear →
+                  ))}
+                </div>
+                <button onClick={() => setFiltrosAv({ fechaInicio:"", fechaFin:"", montoMin:"", montoMax:"", transportista:"" })}
+                  className="mt-3 text-xs font-semibold" style={{ color:C.gray500 }}>
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+
+            {/* Chips estado */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {ESTADOS_FILTRO.map(({ id, label }) => {
+                const count = id === "todos" ? pedidos.length
+                  : pedidos.filter(p => {
+                      const e = (p.estado||"pendiente").toLowerCase().replace(/\s/g,"");
+                      return id === "enproceso" ? e.includes("proceso") : e === id;
+                    }).length;
+                const active = filtroEstado === id;
+                return (
+                  <button key={id} onClick={() => setFiltroEstado(id)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all"
+                    style={{ background:active?C.purple:C.white, borderColor:active?C.purple:C.gray200, color:active?C.white:C.gray600, boxShadow:active?`0 2px 10px ${C.purple}30`:"none" }}>
+                    {label}
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black"
+                      style={{ background:active?"rgba(255,255,255,0.25)":C.gray100, color:active?C.white:C.gray500 }}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Lista pedidos */}
+          {pedidosFiltrados.length === 0 ? (
+            <div className="text-center py-20 rounded-2xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
+              <Package size={40} style={{ color:C.gray300, margin:"0 auto 12px" }} />
+              <h3 className="text-lg font-black mb-2" style={{ color:C.gray800 }}>Sin pedidos</h3>
+              <p className="text-sm mb-6" style={{ color:C.gray500 }}>
+                {busqueda ? `Sin resultados para "${busqueda}"` : "No hay pedidos en esta categoría"}
+              </p>
+              <Link href="/catalogo"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black text-white"
+                style={{ background:C.purple, boxShadow:`0 4px 16px ${C.purple}40` }}>
+                <Building size={15} />Ir al Catálogo<ArrowRight size={14} />
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pedidosFiltrados.map((pedido: any) => {
+                const isExp      = expanded === pedido.id;
+                const isTraza    = showTraza === pedido.id;
+                const cr         = creditoInfo(pedido.fecha, pedido.plazoCredito);
+                const igv        = calcIGV(pedido.total || 0);
+                const transp     = pedido.Transportista || pedido.transportista;
+                const guia       = pedido.GuiaEnvio || pedido.guiaEnvio;
+                const prods      = pedido.productosCalificados || [];
+                const est        = pedido.estado || "Pendiente";
+                const esEntregado = est.toLowerCase() === "entregado";
+                const esNuevo    = pedido.fecha?.toDate && (Date.now() - pedido.fecha.toDate().getTime()) < 86400000;
+                const resumen    = getResumenItems(pedido.items || []);
+
+                return (
+                  <div key={pedido.id}
+                    className="rounded-2xl border overflow-hidden transition-all"
+                    style={{ background:C.white, borderColor:C.gray200 }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = `${C.purple}30`)}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = C.gray200)}>
+                    <div className="p-5">
+                      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+
+                        {/* Izquierda */}
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            <EstadoBadge estado={est} />
+                            {esNuevo && (
+                              <span className="text-[9px] font-black px-2 py-1 rounded-full flex items-center gap-1"
+                                style={{ background:`${C.green}15`, color:"#15803d" }}>
+                                <Bell size={9} />NUEVO
+                              </span>
+                            )}
+                            {pedido.tipoComprobante && (
+                              <span className="text-[10px] font-semibold px-2 py-1 rounded-full border"
+                                style={{ background:C.gray100, borderColor:C.gray200, color:C.gray600 }}>
+                                <Receipt size={10} className="inline mr-1" />{pedido.tipoComprobante}
+                              </span>
+                            )}
+                            <span className="text-xs" style={{ color:C.gray400 }}>{fFecha(pedido.fecha)}</span>
+                          </div>
+
+                          <h3 className="text-base font-black mb-2 flex items-center gap-2" style={{ color:C.gray900 }}>
+                            <Hash size={14} style={{ color:C.purple }} />
+                            Pedido #{pedido.numeroPedido || pedido.id.slice(0,8).toUpperCase()}
+                          </h3>
+
+                          {/* ── Pipeline visual de estado ── */}
+                          <div style={{ marginBottom:12 }}>
+                            <PipelineEstado estado={est} />
+                          </div>
+
+                          {/* ── Info de tracking si está enviado ── */}
+                          {(pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio) && (() => {
+                            const g = pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio;
+                            const t = pedido.courier || pedido.transportista || pedido.Transportista || "";
+                            const url = getTrackingUrl(g, t);
+                            const esCopia = copiados.has(g);
+                            return (
+                              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:C.greenBg, border:`1.5px solid ${C.greenBorder}`, marginBottom:12 }}>
+                                <div style={{ width:36, height:36, borderRadius:10, background:`${C.greenDark}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                                  <Truck size={17} style={{ color:C.greenDark }} />
+                                </div>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <p style={{ margin:0, fontSize:11, fontWeight:700, color:C.greenDark, textTransform:"uppercase", letterSpacing:"0.05em" }}>
+                                    {t || "Courier"} · Guía de seguimiento
+                                  </p>
+                                  <p style={{ margin:"2px 0 0", fontSize:14, fontWeight:900, color:C.gray900, fontFamily:"monospace" }}>{g}</p>
+                                  {pedido.fechaEstimadaEntrega?.toDate && (
+                                    <p style={{ margin:"2px 0 0", fontSize:11, color:C.gray500 }}>
+                                      📅 Entrega estimada: <strong>{pedido.fechaEstimadaEntrega.toDate().toLocaleDateString("es-PE",{day:"numeric",month:"short",year:"numeric"})}</strong>
+                                    </p>
+                                  )}
+                                  {pedido.notaEnvio && (
+                                    <p style={{ margin:"3px 0 0", fontSize:11, color:C.gray600, fontStyle:"italic" }}>"{pedido.notaEnvio}"</p>
+                                  )}
+                                </div>
+                                <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+                                  <button onClick={() => copiarTracking(g)}
+                                    style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.white, border:`1px solid ${C.greenBorder}`, fontSize:11, fontWeight:700, color:C.greenDark, cursor:"pointer" }}>
+                                    {esCopia ? <CheckCircle2 size={11}/> : <Copy size={11}/>}
+                                    {esCopia ? "Copiado" : "Copiar"}
+                                  </button>
+                                  {url && (
+                                    <a href={url} target="_blank" rel="noopener noreferrer"
+                                      style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.greenDark, color:C.white, textDecoration:"none", fontSize:11, fontWeight:800 }}>
+                                      <Navigation size={11}/> Rastrear
                                     </a>
-                                  ) : null;
-                                })()}
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Resumen compacto de lo que compró */}
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            {resumen.totalCajas > 0 && (
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border"
+                                style={{ background:`${C.orange}08`, borderColor:`${C.orange}25` }}>
+                                <Package size={12} style={{ color:C.orange }} />
+                                <span className="text-xs font-black" style={{ color:C.orange }}>
+                                  {resumen.totalCajas} caja{resumen.totalCajas !== 1 ? "s" : ""}
+                                </span>
                               </div>
                             )}
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <StatCard icon={Package}    label="Total Pedidos"     value={pedidos.length} color={C.purple} bg={`${C.purple}08`} />
-          <StatCard icon={DollarSign} label="Monto Total"       value={`S/ ${fmt(pedidos.reduce((s,p)=>s+(p.total||0),0))}`} color={C.green} bg={`${C.green}10`} />
-          <StatCard icon={Truck}      label="Activos"           value={pedidos.filter(p=>!["entregado","cancelado"].includes((p.estado||"").toLowerCase())).length} color={C.orange} bg={`${C.orange}10`} />
-          <StatCard icon={CreditCard} label="Crédito Pendiente" value={`S/ ${fmt(pedidos.filter(p=>p.plazoCredito&&p.estado!=="pagado").reduce((s,p)=>s+(p.total||0),0))}`} color={C.purple} bg={`${C.purple}08`} />
-        </div>
-
-        {/* Búsqueda y filtros */}
-        <div className="space-y-3 mb-6">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2" size={17} style={{ color:C.gray400 }} />
-              <input type="text" placeholder="Buscar por ID, RUC, producto, guía..."
-                value={busqueda} onChange={e => setBusqueda(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border text-sm font-medium outline-none transition-all"
-                style={{ background:C.white, borderColor:C.gray200, color:C.gray800 }}
-                onFocus={e => e.currentTarget.style.borderColor = C.purple}
-                onBlur={e => e.currentTarget.style.borderColor = C.gray200} />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowFiltros(!showFiltros)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold transition-all"
-                style={{ background:showFiltros?C.purple:C.white, borderColor:showFiltros?C.purple:C.gray200, color:showFiltros?C.white:C.gray600 }}>
-                <Filter size={15} />Filtros
-              </button>
-              <button onClick={exportarExcel}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold"
-                style={{ background:`${C.green}10`, borderColor:`${C.green}30`, color:"#15803d" }}>
-                <FileSpreadsheet size={15} />Excel
-              </button>
-            </div>
-          </div>
-
-          {showFiltros && (
-            <div className="rounded-2xl border p-5" style={{ background:C.gray100, borderColor:C.gray200 }}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label:"Fecha inicio", key:"fechaInicio", type:"date" },
-                  { label:"Fecha fin",    key:"fechaFin",    type:"date" },
-                  { label:"Monto mín.",   key:"montoMin",    type:"number", ph:"0.00" },
-                  { label:"Monto máx.",   key:"montoMax",    type:"number", ph:"0.00" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="text-xs font-bold mb-1.5 block" style={{ color:C.gray600 }}>{f.label}</label>
-                    <input type={f.type} placeholder={f.ph}
-                      value={(filtrosAv as any)[f.key]}
-                      onChange={e => setFiltrosAv({...filtrosAv, [f.key]:e.target.value})}
-                      className="w-full px-3 py-2 rounded-xl border text-sm outline-none"
-                      style={{ background:C.white, borderColor:C.gray200, color:C.gray800 }}
-                      onFocus={e => e.currentTarget.style.borderColor = C.purple}
-                      onBlur={e => e.currentTarget.style.borderColor = C.gray200} />
-                  </div>
-                ))}
-              </div>
-              <button onClick={() => setFiltrosAv({ fechaInicio:"", fechaFin:"", montoMin:"", montoMax:"", transportista:"" })}
-                className="mt-3 text-xs font-semibold" style={{ color:C.gray500 }}>
-                Limpiar filtros
-              </button>
-            </div>
-          )}
-
-          {/* Chips estado */}
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {ESTADOS_FILTRO.map(({ id, label }) => {
-              const count = id === "todos" ? pedidos.length
-                : pedidos.filter(p => {
-                    const e = (p.estado||"pendiente").toLowerCase().replace(/\s/g,"");
-                    return id === "enproceso" ? e.includes("proceso") : e === id;
-                  }).length;
-              const active = filtroEstado === id;
-              return (
-                <button key={id} onClick={() => setFiltroEstado(id)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all"
-                  style={{ background:active?C.purple:C.white, borderColor:active?C.purple:C.gray200, color:active?C.white:C.gray600, boxShadow:active?`0 2px 10px ${C.purple}30`:"none" }}>
-                  {label}
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black"
-                    style={{ background:active?"rgba(255,255,255,0.25)":C.gray100, color:active?C.white:C.gray500 }}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Lista pedidos */}
-        {pedidosFiltrados.length === 0 ? (
-          <div className="text-center py-20 rounded-2xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
-            <Package size={40} style={{ color:C.gray300, margin:"0 auto 12px" }} />
-            <h3 className="text-lg font-black mb-2" style={{ color:C.gray800 }}>Sin pedidos</h3>
-            <p className="text-sm mb-6" style={{ color:C.gray500 }}>
-              {busqueda ? `Sin resultados para "${busqueda}"` : "No hay pedidos en esta categoría"}
-            </p>
-            <Link href="/catalogo"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-black text-white"
-              style={{ background:C.purple, boxShadow:`0 4px 16px ${C.purple}40` }}>
-              <Building size={15} />Ir al Catálogo<ArrowRight size={14} />
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pedidosFiltrados.map((pedido: any) => {
-              const isExp      = expanded === pedido.id;
-              const isTraza    = showTraza === pedido.id;
-              const cr         = creditoInfo(pedido.fecha, pedido.plazoCredito);
-              const igv        = calcIGV(pedido.total || 0);
-              const transp     = pedido.Transportista || pedido.transportista;
-              const guia       = pedido.GuiaEnvio || pedido.guiaEnvio;
-              const prods      = pedido.productosCalificados || [];
-              const est        = pedido.estado || "Pendiente";
-              const esEntregado = est.toLowerCase() === "entregado";
-              const esNuevo    = pedido.fecha?.toDate && (Date.now() - pedido.fecha.toDate().getTime()) < 86400000;
-              const resumen    = getResumenItems(pedido.items || []);
-
-              return (
-                <div key={pedido.id}
-                  className="rounded-2xl border overflow-hidden transition-all"
-                  style={{ background:C.white, borderColor:C.gray200 }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor = `${C.purple}30`)}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor = C.gray200)}>
-                  <div className="p-5">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
-
-                      {/* Izquierda */}
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          <EstadoBadge estado={est} />
-                          {esNuevo && (
-                            <span className="text-[9px] font-black px-2 py-1 rounded-full flex items-center gap-1"
-                              style={{ background:`${C.green}15`, color:"#15803d" }}>
-                              <Bell size={9} />NUEVO
-                            </span>
-                          )}
-                          {pedido.tipoComprobante && (
-                            <span className="text-[10px] font-semibold px-2 py-1 rounded-full border"
-                              style={{ background:C.gray100, borderColor:C.gray200, color:C.gray600 }}>
-                              <Receipt size={10} className="inline mr-1" />{pedido.tipoComprobante}
-                            </span>
-                          )}
-                          <span className="text-xs" style={{ color:C.gray400 }}>{fFecha(pedido.fecha)}</span>
-                        </div>
-
-                        <h3 className="text-base font-black mb-2 flex items-center gap-2" style={{ color:C.gray900 }}>
-                          <Hash size={14} style={{ color:C.purple }} />
-                          Pedido #{pedido.numeroPedido || pedido.id.slice(0,8).toUpperCase()}
-                        </h3>
-
-                        {/* ── Pipeline visual de estado ── */}
-                        <div style={{ marginBottom:12 }}>
-                          <PipelineEstado estado={est} />
-                        </div>
-
-                        {/* ── Info de tracking si está enviado ── */}
-                        {(pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio) && (() => {
-                          const g = pedido.trackingNumber || pedido.guiaEnvio || pedido.GuiaEnvio;
-                          const t = pedido.courier || pedido.transportista || pedido.Transportista || "";
-                          const url = getTrackingUrl(g, t);
-                          const esCopia = copiados.has(g);
-                          return (
-                            <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, background:C.greenBg, border:`1.5px solid ${C.greenBorder}`, marginBottom:12 }}>
-                              <div style={{ width:36, height:36, borderRadius:10, background:`${C.greenDark}15`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                                <Truck size={17} style={{ color:C.greenDark }} />
-                              </div>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <p style={{ margin:0, fontSize:11, fontWeight:700, color:C.greenDark, textTransform:"uppercase", letterSpacing:"0.05em" }}>
-                                  {t || "Courier"} · Guía de seguimiento
-                                </p>
-                                <p style={{ margin:"2px 0 0", fontSize:14, fontWeight:900, color:C.gray900, fontFamily:"monospace" }}>{g}</p>
-                                {pedido.fechaEstimadaEntrega?.toDate && (
-                                  <p style={{ margin:"2px 0 0", fontSize:11, color:C.gray500 }}>
-                                    📅 Entrega estimada: <strong>{pedido.fechaEstimadaEntrega.toDate().toLocaleDateString("es-PE",{day:"numeric",month:"short",year:"numeric"})}</strong>
-                                  </p>
-                                )}
-                                {pedido.notaEnvio && (
-                                  <p style={{ margin:"3px 0 0", fontSize:11, color:C.gray600, fontStyle:"italic" }}>"{pedido.notaEnvio}"</p>
-                                )}
-                              </div>
-                              <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-                                <button onClick={() => copiarTracking(g)}
-                                  style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.white, border:`1px solid ${C.greenBorder}`, fontSize:11, fontWeight:700, color:C.greenDark, cursor:"pointer" }}>
-                                  {esCopia ? <CheckCircle2 size={11}/> : <Copy size={11}/>}
-                                  {esCopia ? "Copiado" : "Copiar"}
-                                </button>
-                                {url && (
-                                  <a href={url} target="_blank" rel="noopener noreferrer"
-                                    style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:C.greenDark, color:C.white, textDecoration:"none", fontSize:11, fontWeight:800 }}>
-                                    <Navigation size={11}/> Rastrear
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Resumen compacto de lo que compró */}
-                        <div className="flex flex-wrap items-center gap-2 mb-3">
-                          {resumen.totalCajas > 0 && (
                             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border"
-                              style={{ background:`${C.orange}08`, borderColor:`${C.orange}25` }}>
-                              <Package size={12} style={{ color:C.orange }} />
-                              <span className="text-xs font-black" style={{ color:C.orange }}>
-                                {resumen.totalCajas} caja{resumen.totalCajas !== 1 ? "s" : ""}
+                              style={{ background:`${C.purple}08`, borderColor:`${C.purple}25` }}>
+                              <Box size={12} style={{ color:C.purple }} />
+                              <span className="text-xs font-black" style={{ color:C.purple }}>
+                                {resumen.totalUnidades} unidad{resumen.totalUnidades !== 1 ? "es" : ""}
+                              </span>
+                            </div>
+                            <span className="text-xs" style={{ color:C.gray400 }}>
+                              {resumen.totalPiezas} producto{resumen.totalPiezas !== 1 ? "s" : ""}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 text-xs mb-3" style={{ color:C.gray500 }}>
+                            <span className="flex items-center gap-1"><CreditCard size={12} />{pedido.plazoCredito||"Contado"}</span>
+                            {transp && <><span style={{ color:C.gray300 }}>·</span><span className="flex items-center gap-1"><Truck size={12} />{transp}</span></>}
+                            {guia   && <><span style={{ color:C.gray300 }}>·</span><span className="flex items-center gap-1" style={{ color:C.purple }}><FileText size={12} />Guía: {guia}</span></>}
+                          </div>
+
+                          {/* RUC */}
+                          {(pedido.datosEnvio?.ruc || pedido.clienteRut) && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border mb-3"
+                              style={{ background:C.gray100, borderColor:C.gray200 }}>
+                              <Building size={13} style={{ color:C.gray500 }} />
+                              <span className="text-xs font-bold" style={{ color:C.gray700 }}>
+                                {pedido.datosEnvio?.razonSocial || pedido.clienteNombre}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+                                style={{ background:`${C.purple}12`, color:C.purple }}>
+                                RUC: {pedido.datosEnvio?.ruc || pedido.clienteRut}
                               </span>
                             </div>
                           )}
-                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl border"
-                            style={{ background:`${C.purple}08`, borderColor:`${C.purple}25` }}>
-                            <Box size={12} style={{ color:C.purple }} />
-                            <span className="text-xs font-black" style={{ color:C.purple }}>
-                              {resumen.totalUnidades} unidad{resumen.totalUnidades !== 1 ? "es" : ""}
-                            </span>
+
+                          {/* Crédito */}
+                          {cr && (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold mb-3"
+                              style={{
+                                background: cr.vencido?"rgba(239,68,68,0.08)":cr.diasRestantes<=5?`${C.orange}10`:`${C.green}10`,
+                                borderColor: cr.vencido?"rgba(239,68,68,0.3)":cr.diasRestantes<=5?`${C.orange}30`:`${C.green}30`,
+                                color: cr.vencido?"#dc2626":cr.diasRestantes<=5?C.orange:"#15803d",
+                              }}>
+                              <Calendar size={12} />
+                              {cr.vencido ? "CRÉDITO VENCIDO" : `${cr.diasRestantes}d de plazo · vence ${fFechaSimple(cr.fechaVencimiento)}`}
+                            </div>
+                          )}
+
+                          {/* Miniaturas productos */}
+                          <div className="flex items-center gap-2">
+                            <div className="flex -space-x-1.5">
+                              {(pedido.items||[]).slice(0,5).map((it: any, i: number) => (
+                                <div key={i} className="w-9 h-9 rounded-lg border-2 overflow-hidden"
+                                  style={{ background:C.gray100, borderColor:C.white }}>
+                                  {(it.imagenUrl||it.imagen_principal)
+                                    ? <img src={it.imagenUrl||it.imagen_principal} alt={it.nombre} className="w-full h-full object-contain p-0.5" />
+                                    : <div className="w-full h-full flex items-center justify-center"><Package size={12} style={{ color:C.gray400 }} /></div>}
+                                </div>
+                              ))}
+                            </div>
+                            {(pedido.items||[]).length > 5 && (
+                              <span className="text-xs" style={{ color:C.gray400 }}>+{pedido.items.length-5} más</span>
+                            )}
                           </div>
-                          <span className="text-xs" style={{ color:C.gray400 }}>
-                            {resumen.totalPiezas} producto{resumen.totalPiezas !== 1 ? "s" : ""}
-                          </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs mb-3" style={{ color:C.gray500 }}>
-                          <span className="flex items-center gap-1"><CreditCard size={12} />{pedido.plazoCredito||"Contado"}</span>
-                          {transp && <><span style={{ color:C.gray300 }}>·</span><span className="flex items-center gap-1"><Truck size={12} />{transp}</span></>}
-                          {guia   && <><span style={{ color:C.gray300 }}>·</span><span className="flex items-center gap-1" style={{ color:C.purple }}><FileText size={12} />Guía: {guia}</span></>}
+                        {/* Derecha */}
+                        <div className="lg:w-64 flex flex-col gap-3">
+                          <div className="text-right">
+                            <p className="text-xs mb-0.5" style={{ color:C.gray500 }}>Total del pedido</p>
+                            <p className="text-2xl font-black" style={{ color:C.gray900 }}>S/ {fmt(pedido.total||0)}</p>
+                            <p className="text-[10px]" style={{ color:C.gray400 }}>IGV: S/ {igv.igv}</p>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button onClick={() => setExpanded(isExp ? null : pedido.id)}
+                              className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all"
+                              style={{ background:C.white, borderColor:C.gray200, color:C.gray700 }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor=C.purple; (e.currentTarget as HTMLElement).style.color=C.purple; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=C.gray200; (e.currentTarget as HTMLElement).style.color=C.gray700; }}>
+                              <Eye size={13} />{isExp ? "Ocultar" : "Ver detalle"}
+                            </button>
+                            <button onClick={() => generarPDF(pedido)}
+                              className="py-2.5 px-3.5 rounded-xl text-xs font-bold border transition-all"
+                              style={{ background:`${C.purple}10`, borderColor:`${C.purple}25`, color:C.purple }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background=C.purple; (e.currentTarget as HTMLElement).style.color=C.white; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background=`${C.purple}10`; (e.currentTarget as HTMLElement).style.color=C.purple; }}>
+                              <Download size={13} />
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {guia && (() => {
+                              const url = getTrackingUrl(guia, transp||"");
+                              return (
+                                <button onClick={() => verGuia(guia, transp)}
+                                  className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
+                                  style={{ background:url ? C.greenBg : `${C.orange}10`, borderColor:url ? C.greenBorder : `${C.orange}25`, color:url ? C.greenDark : C.orange }}>
+                                  {url ? <Navigation size={13}/> : <FileText size={13}/>}
+                                  {url ? "Rastrear" : "Guía"}
+                                </button>
+                              );
+                            })()}
+                            <button onClick={() => waContact(pedido)}
+                              className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
+                              style={{ background:`${C.green}10`, borderColor:`${C.green}25`, color:"#15803d" }}>
+                              <MessageCircle size={13} />Asesor
+                            </button>
+                          </div>
+
+                          {esEntregado && (
+                            <button onClick={() => { setPedidoSel(pedido); if (pedido.items?.length === 1) setProdSel(pedido.items[0]); setModalOpinion(true); }}
+                              className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5"
+                              style={{ background:`linear-gradient(135deg,${C.purple},${C.purpleDark})`, color:C.white, boxShadow:`0 2px 10px ${C.purple}30` }}>
+                              <Star size={13} />Calificar productos
+                            </button>
+                          )}
+
+                          <button onClick={() => setShowTraza(isTraza ? null : pedido.id)}
+                            className="flex items-center justify-end gap-1 text-[10px] font-semibold"
+                            style={{ color:C.gray400 }}
+                            onMouseEnter={e => (e.currentTarget.style.color=C.purple)}
+                            onMouseLeave={e => (e.currentTarget.style.color=C.gray400)}>
+                            <History size={11} />Trazabilidad
+                          </button>
                         </div>
+                      </div>
 
-                        {/* RUC */}
-                        {(pedido.datosEnvio?.ruc || pedido.clienteRut) && (
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border mb-3"
-                            style={{ background:C.gray100, borderColor:C.gray200 }}>
-                            <Building size={13} style={{ color:C.gray500 }} />
-                            <span className="text-xs font-bold" style={{ color:C.gray700 }}>
-                              {pedido.datosEnvio?.razonSocial || pedido.clienteNombre}
-                            </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
-                              style={{ background:`${C.purple}12`, color:C.purple }}>
-                              RUC: {pedido.datosEnvio?.ruc || pedido.clienteRut}
-                            </span>
+                      {/* Trazabilidad */}
+                      {isTraza && (
+                        <div className="mt-4 p-4 rounded-xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
+                          <h4 className="text-sm font-black mb-3 flex items-center gap-2" style={{ color:C.gray800 }}>
+                            <History size={14} style={{ color:C.purple }} />Historial de estados
+                          </h4>
+                          <div className="space-y-2">
+                            {pedido.historialEstados?.map((h: any, i: number) => (
+                              <div key={i} className="flex items-center gap-3 text-xs">
+                                <div className="w-2 h-2 rounded-full shrink-0" style={{ background:C.purple }} />
+                                <span style={{ color:C.gray500 }}>{fFecha(h.fecha)}</span>
+                                <span className="font-bold" style={{ color:C.gray900 }}>{h.estado}</span>
+                                {h.usuario && <span style={{ color:C.gray400 }}>por: {h.usuario}</span>}
+                              </div>
+                            )) ?? <p className="text-xs" style={{ color:C.gray400 }}>Sin historial</p>}
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {/* Crédito */}
-                        {cr && (
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold mb-3"
-                            style={{
-                              background: cr.vencido?"rgba(239,68,68,0.08)":cr.diasRestantes<=5?`${C.orange}10`:`${C.green}10`,
-                              borderColor: cr.vencido?"rgba(239,68,68,0.3)":cr.diasRestantes<=5?`${C.orange}30`:`${C.green}30`,
-                              color: cr.vencido?"#dc2626":cr.diasRestantes<=5?C.orange:"#15803d",
-                            }}>
-                            <Calendar size={12} />
-                            {cr.vencido ? "CRÉDITO VENCIDO" : `${cr.diasRestantes}d de plazo · vence ${fFechaSimple(cr.fechaVencimiento)}`}
+                      {/* Detalles expandidos */}
+                      {isExp && (
+                        <div className="mt-5 pt-5" style={{ borderTop:`1px solid ${C.gray100}` }}>
+                          <div className="grid md:grid-cols-2 gap-5">
+
+                            {/* Resumen pago + datos facturación */}
+                            <div>
+                              <h4 className="text-sm font-black mb-3" style={{ color:C.gray800 }}>Resumen de pago</h4>
+
+                              {/* Constancia de pago */}
+                              {pedido.comprobanteUrl && (
+                                <div className="rounded-xl border overflow-hidden mb-3" style={{ borderColor: C.greenBorder }}>
+                                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 12px", background:C.greenBg, borderBottom:`1px solid ${C.greenBorder}` }}>
+                                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                                      <CheckCircle2 size={13} style={{ color:C.greenDark }}/>
+                                      <span style={{ fontSize:11, fontWeight:800, color:C.greenDark }}>Constancia de pago enviada</span>
+                                    </div>
+                                    <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
+                                      style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none", display:"flex", alignItems:"center", gap:3 }}>
+                                      <ExternalLink size={10}/> Ver
+                                    </a>
+                                  </div>
+                                  {!pedido.comprobanteUrl.match(/\.pdf/i) && (
+                                    <img src={pedido.comprobanteUrl} alt="Constancia"
+                                      style={{ width:"100%", maxHeight:140, objectFit:"contain", padding:8, background:C.gray100, cursor:"pointer" }}
+                                      onClick={() => window.open(pedido.comprobanteUrl, "_blank")}
+                                      onError={e => { (e.target as HTMLImageElement).style.display="none"; }}
+                                    />
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="rounded-xl p-4 border space-y-2 mb-3" style={{ background:C.gray100, borderColor:C.gray200 }}>
+                                {[
+                                  ["Base Imponible", `S/ ${igv.base}`,  C.gray700],
+                                  ["IGV (18%)",      `S/ ${igv.igv}`,   C.orange ],
+                                  ["Total",          `S/ ${igv.total}`, C.purple ],
+                                ].map(([k,v,c]) => (
+                                  <div key={k as string} className="flex justify-between text-sm">
+                                    <span style={{ color:C.gray500 }}>{k}:</span>
+                                    <span className="font-black" style={{ color:c as string }}>{v}</span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {(pedido.datosEnvio || pedido.clienteNombre) && (
+                                <div className="rounded-xl p-4 border space-y-2" style={{ background:C.gray100, borderColor:C.gray200 }}>
+                                  <h5 className="text-xs font-black flex items-center gap-1.5 mb-2" style={{ color:C.gray700 }}>
+                                    <MapPin size={12} style={{ color:C.purple }} />Datos de Facturación
+                                  </h5>
+                                  {[
+                                    [Building, pedido.datosEnvio?.razonSocial || pedido.clienteNombre],
+                                    [FileText, `RUC: ${pedido.datosEnvio?.ruc || pedido.clienteRut || "—"}`],
+                                    [MapPin,   pedido.datosEnvio?.direccion || pedido.clienteDireccion],
+                                    [Phone,    pedido.datosEnvio?.telefono  || pedido.clienteTelefono],
+                                  ].filter(([,v]) => v).map(([Icon, val], i) => {
+                                    const Ic = Icon as any;
+                                    return (
+                                      <div key={i} className="flex items-start gap-2 text-xs" style={{ color:C.gray600 }}>
+                                        <Ic size={12} style={{ color:C.gray400, marginTop:2 }} />{val}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Productos con desglose completo */}
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-black" style={{ color:C.gray800 }}>
+                                  Productos ({(pedido.items||[]).length})
+                                </h4>
+                                {/* Resumen total compra */}
+                                <div className="flex gap-2">
+                                  {resumen.totalCajas > 0 && (
+                                    <span className="text-[10px] font-bold px-2 py-1 rounded-lg"
+                                      style={{ background:`${C.orange}12`, color:C.orange }}>
+                                      {resumen.totalCajas} cajas
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-bold px-2 py-1 rounded-lg"
+                                    style={{ background:`${C.purple}12`, color:C.purple }}>
+                                    {resumen.totalUnidades} uds
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                {(pedido.items||[]).map((it: any, i: number) => (
+                                  <ItemLinea key={i}
+                                    item={it}
+                                    esEntregado={esEntregado}
+                                    calificado={prods.includes(it.id)}
+                                    onCalificar={() => { setProdSel(it); setPedidoSel(pedido); setModalOpinion(true); }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
                           </div>
-                        )}
 
-                        {/* Miniaturas productos */}
-                        <div className="flex items-center gap-2">
-                          <div className="flex -space-x-1.5">
-                            {(pedido.items||[]).slice(0,5).map((it: any, i: number) => (
-                              <div key={i} className="w-9 h-9 rounded-lg border-2 overflow-hidden"
-                                style={{ background:C.gray100, borderColor:C.white }}>
-                                {(it.imagenUrl||it.imagen_principal)
-                                  ? <img src={it.imagenUrl||it.imagen_principal} alt={it.nombre} className="w-full h-full object-contain p-0.5" />
-                                  : <div className="w-full h-full flex items-center justify-center"><Package size={12} style={{ color:C.gray400 }} /></div>}
+                          {/* 🔥 Banner IMEI agregado aquí */}
+                          <IMEINotifBanner pedido={pedido} />
+
+                          {/* Condiciones */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+                            {[
+                              { label:"Condición pago", val:pedido.plazoCredito||"Contado", color:C.purple },
+                              { label:"Método pago",    val:pedido.metodoPago||"—",         color:C.orange },
+                              ...(guia   ? [{ label:"Guía remisión",  val:guia,   color:C.green  }] : []),
+                              ...(transp ? [{ label:"Transportista",  val:transp, color:C.gray600}] : []),
+                            ].map(({ label, val, color }) => (
+                              <div key={label} className="p-3 rounded-xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
+                                <p className="text-[10px] font-semibold mb-1" style={{ color:C.gray500 }}>{label}</p>
+                                <p className="text-xs font-black" style={{ color }}>{val}</p>
                               </div>
                             ))}
                           </div>
-                          {(pedido.items||[]).length > 5 && (
-                            <span className="text-xs" style={{ color:C.gray400 }}>+{pedido.items.length-5} más</span>
-                          )}
                         </div>
-                      </div>
-
-                      {/* Derecha */}
-                      <div className="lg:w-64 flex flex-col gap-3">
-                        <div className="text-right">
-                          <p className="text-xs mb-0.5" style={{ color:C.gray500 }}>Total del pedido</p>
-                          <p className="text-2xl font-black" style={{ color:C.gray900 }}>S/ {fmt(pedido.total||0)}</p>
-                          <p className="text-[10px]" style={{ color:C.gray400 }}>IGV: S/ {igv.igv}</p>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button onClick={() => setExpanded(isExp ? null : pedido.id)}
-                            className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all"
-                            style={{ background:C.white, borderColor:C.gray200, color:C.gray700 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor=C.purple; (e.currentTarget as HTMLElement).style.color=C.purple; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=C.gray200; (e.currentTarget as HTMLElement).style.color=C.gray700; }}>
-                            <Eye size={13} />{isExp ? "Ocultar" : "Ver detalle"}
-                          </button>
-                          <button onClick={() => generarPDF(pedido)}
-                            className="py-2.5 px-3.5 rounded-xl text-xs font-bold border transition-all"
-                            style={{ background:`${C.purple}10`, borderColor:`${C.purple}25`, color:C.purple }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background=C.purple; (e.currentTarget as HTMLElement).style.color=C.white; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background=`${C.purple}10`; (e.currentTarget as HTMLElement).style.color=C.purple; }}>
-                            <Download size={13} />
-                          </button>
-                        </div>
-
-                        <div className="flex gap-2">
-                          {guia && (() => {
-                            const url = getTrackingUrl(guia, transp||"");
-                            return (
-                              <button onClick={() => verGuia(guia, transp)}
-                                className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
-                                style={{ background:url ? C.greenBg : `${C.orange}10`, borderColor:url ? C.greenBorder : `${C.orange}25`, color:url ? C.greenDark : C.orange }}>
-                                {url ? <Navigation size={13}/> : <FileText size={13}/>}
-                                {url ? "Rastrear" : "Guía"}
-                              </button>
-                            );
-                          })()}
-                          <button onClick={() => waContact(pedido)}
-                            className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border"
-                            style={{ background:`${C.green}10`, borderColor:`${C.green}25`, color:"#15803d" }}>
-                            <MessageCircle size={13} />Asesor
-                          </button>
-                        </div>
-
-                        {esEntregado && (
-                          <button onClick={() => { setPedidoSel(pedido); if (pedido.items?.length === 1) setProdSel(pedido.items[0]); setModalOpinion(true); }}
-                            className="w-full py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5"
-                            style={{ background:`linear-gradient(135deg,${C.purple},${C.purpleDark})`, color:C.white, boxShadow:`0 2px 10px ${C.purple}30` }}>
-                            <Star size={13} />Calificar productos
-                          </button>
-                        )}
-
-                        <button onClick={() => setShowTraza(isTraza ? null : pedido.id)}
-                          className="flex items-center justify-end gap-1 text-[10px] font-semibold"
-                          style={{ color:C.gray400 }}
-                          onMouseEnter={e => (e.currentTarget.style.color=C.purple)}
-                          onMouseLeave={e => (e.currentTarget.style.color=C.gray400)}>
-                          <History size={11} />Trazabilidad
-                        </button>
-                      </div>
+                      )}
                     </div>
-
-                    {/* Trazabilidad */}
-                    {isTraza && (
-                      <div className="mt-4 p-4 rounded-xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
-                        <h4 className="text-sm font-black mb-3 flex items-center gap-2" style={{ color:C.gray800 }}>
-                          <History size={14} style={{ color:C.purple }} />Historial de estados
-                        </h4>
-                        <div className="space-y-2">
-                          {pedido.historialEstados?.map((h: any, i: number) => (
-                            <div key={i} className="flex items-center gap-3 text-xs">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background:C.purple }} />
-                              <span style={{ color:C.gray500 }}>{fFecha(h.fecha)}</span>
-                              <span className="font-bold" style={{ color:C.gray900 }}>{h.estado}</span>
-                              {h.usuario && <span style={{ color:C.gray400 }}>por: {h.usuario}</span>}
-                            </div>
-                          )) ?? <p className="text-xs" style={{ color:C.gray400 }}>Sin historial</p>}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Detalles expandidos */}
-                    {isExp && (
-                      <div className="mt-5 pt-5" style={{ borderTop:`1px solid ${C.gray100}` }}>
-                        <div className="grid md:grid-cols-2 gap-5">
-
-                          {/* Resumen pago + datos facturación */}
-                          <div>
-                            <h4 className="text-sm font-black mb-3" style={{ color:C.gray800 }}>Resumen de pago</h4>
-
-                            {/* Constancia de pago */}
-                            {pedido.comprobanteUrl && (
-                              <div className="rounded-xl border overflow-hidden mb-3" style={{ borderColor: C.greenBorder }}>
-                                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 12px", background:C.greenBg, borderBottom:`1px solid ${C.greenBorder}` }}>
-                                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                                    <CheckCircle2 size={13} style={{ color:C.greenDark }}/>
-                                    <span style={{ fontSize:11, fontWeight:800, color:C.greenDark }}>Constancia de pago enviada</span>
-                                  </div>
-                                  <a href={pedido.comprobanteUrl} target="_blank" rel="noopener noreferrer"
-                                    style={{ fontSize:10, fontWeight:700, color:C.greenDark, textDecoration:"none", display:"flex", alignItems:"center", gap:3 }}>
-                                    <ExternalLink size={10}/> Ver
-                                  </a>
-                                </div>
-                                {!pedido.comprobanteUrl.match(/\.pdf/i) && (
-                                  <img src={pedido.comprobanteUrl} alt="Constancia"
-                                    style={{ width:"100%", maxHeight:140, objectFit:"contain", padding:8, background:C.gray100, cursor:"pointer" }}
-                                    onClick={() => window.open(pedido.comprobanteUrl, "_blank")}
-                                    onError={e => { (e.target as HTMLImageElement).style.display="none"; }}
-                                  />
-                                )}
-                              </div>
-                            )}
-
-                            <div className="rounded-xl p-4 border space-y-2 mb-3" style={{ background:C.gray100, borderColor:C.gray200 }}>
-                              {[
-                                ["Base Imponible", `S/ ${igv.base}`,  C.gray700],
-                                ["IGV (18%)",      `S/ ${igv.igv}`,   C.orange ],
-                                ["Total",          `S/ ${igv.total}`, C.purple ],
-                              ].map(([k,v,c]) => (
-                                <div key={k as string} className="flex justify-between text-sm">
-                                  <span style={{ color:C.gray500 }}>{k}:</span>
-                                  <span className="font-black" style={{ color:c as string }}>{v}</span>
-                                </div>
-                              ))}
-                            </div>
-
-                            {(pedido.datosEnvio || pedido.clienteNombre) && (
-                              <div className="rounded-xl p-4 border space-y-2" style={{ background:C.gray100, borderColor:C.gray200 }}>
-                                <h5 className="text-xs font-black flex items-center gap-1.5 mb-2" style={{ color:C.gray700 }}>
-                                  <MapPin size={12} style={{ color:C.purple }} />Datos de Facturación
-                                </h5>
-                                {[
-                                  [Building, pedido.datosEnvio?.razonSocial || pedido.clienteNombre],
-                                  [FileText, `RUC: ${pedido.datosEnvio?.ruc || pedido.clienteRut || "—"}`],
-                                  [MapPin,   pedido.datosEnvio?.direccion || pedido.clienteDireccion],
-                                  [Phone,    pedido.datosEnvio?.telefono  || pedido.clienteTelefono],
-                                ].filter(([,v]) => v).map(([Icon, val], i) => {
-                                  const Ic = Icon as any;
-                                  return (
-                                    <div key={i} className="flex items-start gap-2 text-xs" style={{ color:C.gray600 }}>
-                                      <Ic size={12} style={{ color:C.gray400, marginTop:2 }} />{val}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Productos con desglose completo */}
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-black" style={{ color:C.gray800 }}>
-                                Productos ({(pedido.items||[]).length})
-                              </h4>
-                              {/* Resumen total compra */}
-                              <div className="flex gap-2">
-                                {resumen.totalCajas > 0 && (
-                                  <span className="text-[10px] font-bold px-2 py-1 rounded-lg"
-                                    style={{ background:`${C.orange}12`, color:C.orange }}>
-                                    {resumen.totalCajas} cajas
-                                  </span>
-                                )}
-                                <span className="text-[10px] font-bold px-2 py-1 rounded-lg"
-                                  style={{ background:`${C.purple}12`, color:C.purple }}>
-                                  {resumen.totalUnidades} uds
-                                </span>
-                              </div>
-                            </div>
-                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                              {(pedido.items||[]).map((it: any, i: number) => (
-                                <ItemLinea key={i}
-                                  item={it}
-                                  esEntregado={esEntregado}
-                                  calificado={prods.includes(it.id)}
-                                  onCalificar={() => { setProdSel(it); setPedidoSel(pedido); setModalOpinion(true); }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Condiciones */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                          {[
-                            { label:"Condición pago", val:pedido.plazoCredito||"Contado", color:C.purple },
-                            { label:"Método pago",    val:pedido.metodoPago||"—",         color:C.orange },
-                            ...(guia   ? [{ label:"Guía remisión",  val:guia,   color:C.green  }] : []),
-                            ...(transp ? [{ label:"Transportista",  val:transp, color:C.gray600}] : []),
-                          ].map(({ label, val, color }) => (
-                            <div key={label} className="p-3 rounded-xl border" style={{ background:C.gray100, borderColor:C.gray200 }}>
-                              <p className="text-[10px] font-semibold mb-1" style={{ color:C.gray500 }}>{label}</p>
-                              <p className="text-xs font-black" style={{ color }}>{val}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal opinión */}
@@ -1316,6 +1326,6 @@ export default function MisPedidosPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -3,13 +3,18 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, addDoc, serverTimestamp,
-  doc, updateDoc, increment, query, orderBy, limit
+  doc, updateDoc, increment, query, orderBy, limit,
+  where, onSnapshot
 } from "firebase/firestore";
 import {
   Trash2, Plus, Minus, ShoppingCart, User,
   PackageSearch, CreditCard, Banknote, Landmark,
   CheckCircle2, X, Printer, FileText, History,
+  Package, Box, Shield, AlertCircle, Zap,
+  Smartphone, Mail, Phone, Building, Hash,
+  ChevronDown, ChevronUp, Eye, Download
 } from "lucide-react";
+import { toast, Toaster } from "react-hot-toast";
 
 const C = {
   purple:      "#9851F9",
@@ -39,16 +44,29 @@ const fmt = (n: number | undefined | null) =>
 interface ProductoItem {
   id: string;
   nombre: string;
+  nombre_producto?: string;
   sku: string;
-  precioBase: number;       // calculado al cargar
-  precioUnidad: number;     // precio_unitario
-  precioCaja: number;       // precio_caja
-  stockCajas: number;       // stock_cajas
-  stockUnidades: number;    // stock_unidades
+  precioBase: number;
+  precioUnidad: number;
+  precioCaja: number;
+  precioOfertaCaja?: number;
+  precioOfertaUnidad?: number;
+  enOferta?: boolean;
+  enOfertaUnidad?: boolean;
+  stockCajas: number;
+  stockUnidades: number;
   imagenUrl: string;
   marca: string;
+  modelo?: string;
   categoria: string;
+  categoria_id?: string;
   unidadesPorCaja: number;
+  capacidad_almacenamiento?: string;
+  capacidad_ram?: string;
+  color?: string;
+  sistema_operativo?: string;
+  garantia_meses?: number;
+  destacado?: boolean;
 }
 
 interface ItemCarrito extends ProductoItem {
@@ -59,11 +77,25 @@ interface ItemCarrito extends ProductoItem {
 interface VentaReciente {
   id: string;
   clienteEmail: string;
+  clienteNombre?: string;
   estado: string;
   total: number;
   metodoPago?: string;
   fecha?: any;
   items?: any[];
+}
+
+interface Cliente {
+  id: string;
+  email: string;
+  nombre?: string;
+  empresa?: string;
+  razonSocial?: string;
+  ruc?: string;
+  telefono?: string;
+  direccion?: string;
+  rol?: string;
+  emailVerified?: boolean;
 }
 
 const METODOS_PAGO = [
@@ -79,6 +111,13 @@ const Pill = ({ children, color = C.purple }: { children: React.ReactNode; color
   </span>
 );
 
+const BadgeSpec = ({ children, color = C.purple }: { children: React.ReactNode; color?: string }) => (
+  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-bold"
+    style={{ background: `${color}10`, color }}>
+    {children}
+  </span>
+);
+
 const StatChip = ({ label, value, color = C.purple }: { label: string; value: string | number; color?: string }) => (
   <div className="flex flex-col items-center px-4 py-2 rounded-xl border"
     style={{ background: `${color}06`, borderColor: `${color}20` }}>
@@ -90,7 +129,7 @@ const StatChip = ({ label, value, color = C.purple }: { label: string; value: st
 /* ════════════════════════════════════════════════════════════ */
 export default function VentaManual() {
   const [productos,           setProductos]           = useState<ProductoItem[]>([]);
-  const [clientes,            setClientes]            = useState<any[]>([]);
+  const [clientes,            setClientes]            = useState<Cliente[]>([]);
   const [ventasRecientes,     setVentasRecientes]     = useState<VentaReciente[]>([]);
   const [carrito,             setCarrito]             = useState<ItemCarrito[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState("");
@@ -98,19 +137,16 @@ export default function VentaManual() {
   const [loading,             setLoading]             = useState(false);
   const [modalPago,           setModalPago]           = useState(false);
   const [metodoPago,          setMetodoPago]          = useState("Efectivo");
+  const [productoExpandido,   setProductoExpandido]   = useState<string | null>(null);
+  const [tipoPrecioSeleccionado, setTipoPrecioSeleccionado] = useState<Record<string, "caja" | "unidad">>({});
 
-  const fetchData = async () => {
-    try {
-      const [prodSnap, cliSnap] = await Promise.all([
-        getDocs(collection(db, "productos")),
-        getDocs(collection(db, "usuarios")),
-      ]);
-
-      /* ── Mapeo EXACTO a los campos de Firebase ── */
-      const prods: ProductoItem[] = prodSnap.docs
+  // 🔥 ESCUCHA EN TIEMPO REAL
+  useEffect(() => {
+    // Productos en tiempo real
+    const unsubProductos = onSnapshot(collection(db, "productos"), (snap) => {
+      const prods: ProductoItem[] = snap.docs
         .map(d => {
           const data = d.data();
-
           const precioCaja    = Number(data.precio_caja)     || 0;
           const precioUnidad  = Number(data.precio_unitario) || 0;
           const stockCajas    = Number(data.stock_cajas)     || 0;
@@ -119,71 +155,119 @@ export default function VentaManual() {
           return {
             id:             d.id,
             nombre:         data.nombre_producto || data.nombre || "Sin nombre",
+            nombre_producto: data.nombre_producto || data.nombre || "Sin nombre",
             sku:            data.sku             || "",
-            precioBase:     precioCaja  > 0 ? precioCaja : precioUnidad, // preferimos caja
+            precioBase:     precioCaja  > 0 ? precioCaja : precioUnidad,
             precioUnidad,
             precioCaja,
+            precioOfertaCaja:   data.precio_oferta_caja,
+            precioOfertaUnidad: data.precio_oferta_unidad,
+            enOferta:           data.en_oferta || false,
+            enOfertaUnidad:     data.en_oferta_unidad || false,
             stockCajas,
             stockUnidades,
             imagenUrl:      data.imagen_principal || "",
             marca:          data.marca            || "",
+            modelo:         data.modelo           || "",
             categoria:      data.categoria_id     || "",
-            unidadesPorCaja:Number(data.unidades_por_caja) || 1,
+            categoria_id:   data.categoria_id     || "",
+            unidadesPorCaja: Number(data.unidades_por_caja) || 1,
+            capacidad_almacenamiento: data.capacidad_almacenamiento || "",
+            capacidad_ram:  data.capacidad_ram || "",
+            color:          data.color || "",
+            sistema_operativo: data.sistema_operativo || "",
+            garantia_meses: data.garantia_meses || 12,
+            destacado:      data.destacado || false,
           };
         })
-        /* Solo mostrar productos con stock Y activos */
         .filter(p => p.stockCajas > 0 || p.stockUnidades > 0);
-
       setProductos(prods);
-      setClientes(cliSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
 
-      /* Historial — sin orderBy para evitar índice compuesto */
-      const histSnap = await getDocs(
-        query(collection(db, "pedidos"), limit(8))
-      );
-      const ventas = histSnap.docs
-        .map(d => ({ id: d.id, ...d.data() } as VentaReciente))
-        .sort((a, b) => {
-          const fa = a.fecha?.toDate?.()?.getTime() ?? 0;
-          const fb = b.fecha?.toDate?.()?.getTime() ?? 0;
-          return fb - fa;
-        });
-      setVentasRecientes(ventas);
-    } catch (e) {
-      console.error("fetchData error:", e);
-    }
-  };
+    // Clientes verificados (NO admins)
+    const unsubClientes = onSnapshot(
+      query(collection(db, "usuarios"), where("rol", "!=", "admin")),
+      (snap) => {
+        const clis: Cliente[] = snap.docs
+          .map(d => ({
+            id: d.id,
+            email: d.data().email || "",
+            nombre: d.data().nombre || d.data().displayName || "",
+            empresa: d.data().empresa || d.data().razonSocial || "",
+            razonSocial: d.data().razonSocial || d.data().empresa || "",
+            ruc: d.data().ruc || d.data().nifCifRuc || "",
+            telefono: d.data().telefono || "",
+            direccion: d.data().direccion || "",
+            rol: d.data().rol || "cliente",
+            emailVerified: d.data().emailVerified || false,
+          }))
+          .filter(c => c.email); // Solo con email válido
+        setClientes(clis);
+      }
+    );
 
-  useEffect(() => { fetchData(); }, []);
+    // Ventas recientes en tiempo real
+    const unsubVentas = onSnapshot(
+      query(collection(db, "pedidos"), orderBy("fecha", "desc"), limit(8)),
+      (snap) => {
+        const ventas = snap.docs.map(d => ({ id: d.id, ...d.data() } as VentaReciente));
+        setVentasRecientes(ventas);
+      }
+    );
+
+    return () => {
+      unsubProductos();
+      unsubClientes();
+      unsubVentas();
+    };
+  }, []);
 
   /* ─── TOTALES ─── */
-  const total      = carrito.reduce((s, i) => s + i.precioBase * i.cantidad, 0);
+  const total      = carrito.reduce((s, i) => s + (i.tipoPrecio === "caja" ? i.precioCaja : i.precioUnidad) * i.cantidad, 0);
   const totalItems = carrito.reduce((s, i) => s + i.cantidad, 0);
   const subtotal   = total / 1.18;
   const igv        = total - subtotal;
 
   /* ─── CARRITO ─── */
-  const agregarProducto = (prod: ProductoItem) => {
-    const stockDisp = prod.stockCajas > 0 ? prod.stockCajas : prod.stockUnidades;
-    if (stockDisp <= 0) { alert("Producto agotado"); return; }
-    const existente = carrito.find(i => i.id === prod.id);
-    if (existente) {
-      if (existente.cantidad >= stockDisp) { alert("Sin stock suficiente"); return; }
-      setCarrito(p => p.map(i => i.id === prod.id ? { ...i, cantidad: i.cantidad + 1 } : i));
+  const agregarProducto = (prod: ProductoItem, tipo: "caja" | "unidad") => {
+    const stockDisp = tipo === "caja" ? prod.stockCajas : prod.stockUnidades;
+    if (stockDisp <= 0) { toast.error(`Sin stock en ${tipo === "caja" ? "cajas" : "unidades"}`); return; }
+    
+    const precioUnitario = tipo === "caja" 
+      ? (prod.enOferta && prod.precioOfertaCaja ? prod.precioOfertaCaja : prod.precioCaja)
+      : (prod.enOfertaUnidad && prod.precioOfertaUnidad ? prod.precioOfertaUnidad : prod.precioUnidad);
+
+    const itemEnCarrito = carrito.find(i => i.id === prod.id && i.tipoPrecio === tipo);
+    
+    if (itemEnCarrito) {
+      if (itemEnCarrito.cantidad >= stockDisp) { toast.error("Stock insuficiente"); return; }
+      setCarrito(p => p.map(i => 
+        i.id === prod.id && i.tipoPrecio === tipo 
+          ? { ...i, cantidad: i.cantidad + 1 } 
+          : i
+      ));
     } else {
-      setCarrito(p => [...p, { ...prod, cantidad: 1, tipoPrecio: prod.stockCajas > 0 ? "caja" : "unidad" }]);
+      setCarrito(p => [...p, { 
+        ...prod, 
+        cantidad: 1, 
+        tipoPrecio: tipo,
+        precioBase: precioUnitario
+      }]);
     }
+    toast.success(`Agregado: ${prod.nombre} (${tipo === "caja" ? "caja" : "unidad"})`);
   };
 
-  const cambiarCantidad = (id: string, delta: number) =>
+  const cambiarCantidad = (id: string, tipo: "caja" | "unidad", delta: number) =>
     setCarrito(p => p.map(i => {
-      if (i.id !== id) return i;
-      const maxStock = i.stockCajas > 0 ? i.stockCajas : i.stockUnidades;
+      if (i.id !== id || i.tipoPrecio !== tipo) return i;
+      const maxStock = i.tipoPrecio === "caja" ? i.stockCajas : i.stockUnidades;
       const nueva    = Math.max(1, Math.min(i.cantidad + delta, maxStock));
       return { ...i, cantidad: nueva };
     }));
 
-  const eliminarItem   = (id: string) => setCarrito(p => p.filter(i => i.id !== id));
+  const eliminarItem   = (id: string, tipo: "caja" | "unidad") => 
+    setCarrito(p => p.filter(i => !(i.id === id && i.tipoPrecio === tipo)));
+
   const limpiarCarrito = () => { setCarrito([]); setClienteSeleccionado(""); };
 
   /* ─── IMPRESIÓN ─── */
@@ -216,9 +300,9 @@ export default function VentaManual() {
         <tbody>
           ${(datos.items || []).map((i: any) => `
             <tr>
-              <td>${(i.nombre || "").substring(0, 22)}</td>
+              <td>${(i.nombre || "").substring(0, 22)} (${i.tipoPrecio || "caja"})</td>
               <td>${i.cantidad || 0}</td>
-              <td class="r">S/ ${((i.precio || 0) * (i.cantidad || 1)).toFixed(2)}</td>
+              <td class="r">S/ ${((i.precioBase || 0) * (i.cantidad || 1)).toFixed(2)}</td>
             </tr>`).join("")}
         </tbody>
       </table>
@@ -240,41 +324,122 @@ export default function VentaManual() {
 
   /* ─── PROCESAR VENTA ─── */
   const procesarOperacion = async (tipo: "Venta" | "Proforma") => {
-    if (!clienteSeleccionado) { alert("Selecciona un cliente"); return; }
-    if (carrito.length === 0) { alert("El carrito está vacío"); return; }
+    if (!clienteSeleccionado) { toast.error("Selecciona un cliente"); return; }
+    if (carrito.length === 0) { toast.error("El carrito está vacío"); return; }
     setLoading(true);
+    
     const esVenta = tipo === "Venta";
+    const cliente = clientes.find(c => c.email === clienteSeleccionado);
+    
+    // 🔥 IMPORTANTE: Estructura EXACTA que espera el panel de administración
     const datosOp = {
-      clienteEmail: clienteSeleccionado,
+      clienteId:        cliente?.id,
+      clienteEmail:     clienteSeleccionado,
+      clienteNombre:    cliente?.empresa || cliente?.razonSocial || cliente?.nombre || clienteSeleccionado,
+      clienteRut:       cliente?.ruc || "",
+      clienteTelefono:  cliente?.telefono || "",
+      clienteDireccion: cliente?.direccion || "",
+      
+      // Datos de envío (estructura que usa el panel)
+      datosEnvio: {
+        ruc:          cliente?.ruc || "",
+        razonSocial:  cliente?.empresa || cliente?.razonSocial || cliente?.nombre || "",
+        contacto:     cliente?.nombre || "",
+        email:        clienteSeleccionado,
+        telefono:     cliente?.telefono || "",
+        direccion:    cliente?.direccion || "",
+        ciudad:       "Lima",
+        referencia:   "",
+      },
+      
       items: carrito.map(i => ({
-        id:       i.id,
-        nombre:   i.nombre,
-        precio:   i.precioBase,
-        cantidad: i.cantidad,
-        sku:      i.sku || "N/A",
+        id:               i.id,
+        idOriginal:       i.id,
+        nombre:           i.nombre,
+        precioBase:       i.tipoPrecio === "caja" ? i.precioCaja : i.precioUnidad,
+        precioCaja:       i.precioCaja,
+        precioUnidad:     i.precioUnidad,
+        cantidad:         i.cantidad,
+        tipoCompra:       i.tipoPrecio, // 🔥 Importante: usar "caja" o "unidad"
+        sku:              i.sku || "N/A",
+        imagen_principal: i.imagenUrl || "",
+        imagenUrl:        i.imagenUrl || "",
+        unidadesPorCaja:  i.unidadesPorCaja,
       })),
-      total,
-      estado:     esVenta ? "Completado" : "Proforma",
-      metodoPago: esVenta ? metodoPago : "N/A",
-      fecha:      serverTimestamp(),
+      
+      total:             Number(total.toFixed(2)),
+      estado:            esVenta ? "PENDIENTE" : "Proforma", // 🔥 Usar mayúsculas como en el panel
+      metodoPago:        esVenta ? metodoPago : "No especificado",
+      
+      // Campos que espera el panel
+      archived:          false,
+      urgente:           false,
+      comprobanteUrl:    null,
+      trackingNumber:    null,
+      courier:           null,
+      guiaEnvio:         null,
+      transportista:     null,
+      nota:              `Pedido generado desde terminal POS manual - ${esVenta ? "Venta" : "Proforma"}`,
+      notaInterna:       `Método: ${metodoPago}`,
+      
+      // Fechas
+      fecha:             serverTimestamp(),
+      fechaActualizacion: serverTimestamp(),
+      fechaEstimadaEntrega: null,
+      
+      // Historial
+      historialEstados: [{
+        estado:  esVenta ? "PENDIENTE" : "Proforma",
+        fecha:   new Date().toISOString(),
+        usuario: "admin-venta-manual",
+        nota:    `Pedido ${esVenta ? "vendido" : "proforma"} desde terminal POS`,
+      }],
     };
+
     try {
       const ref = await addDoc(collection(db, "pedidos"), datosOp);
+      
       if (esVenta) {
-        await Promise.all(carrito.map(item =>
-          updateDoc(doc(db, "productos", item.id), {
-            stock_cajas:    increment(-item.cantidad),
-            stock_unidades: increment(-(item.cantidad * item.unidadesPorCaja)),
-          })
-        ));
+        // Actualizar stock
+        await Promise.all(carrito.map(item => {
+          const updateData: any = {};
+          if (item.tipoPrecio === "caja") {
+            updateData.stock_cajas = increment(-item.cantidad);
+          } else {
+            updateData.stock_unidades = increment(-item.cantidad);
+          }
+          return updateDoc(doc(db, "productos", item.id), updateData);
+        }));
+
+        // Crear notificación para el cliente
+        await addDoc(collection(db, "notificaciones"), {
+          clienteId:       cliente?.id,
+          clienteEmail:    clienteSeleccionado,
+          tipo:            "pedido",
+          titulo:          "Nuevo pedido generado",
+          mensaje:         `Tu pedido #${ref.id.slice(0,8).toUpperCase()} ha sido registrado exitosamente. Total: S/ ${fmt(total)}`,
+          pedidoId:        ref.id,
+          leida:           false,
+          timestamp:       serverTimestamp(),
+        });
+
+        toast.success("✅ Venta registrada y notificación enviada");
+      } else {
+        toast.success("📄 Proforma generada");
       }
+
       imprimirComprobante({ ...datosOp, id: ref.id }, !esVenta);
       limpiarCarrito();
       setModalPago(false);
-      fetchData();
+      
+      // 🔥 Forzar recarga de ventas recientes
+      const q = query(collection(db, "pedidos"), orderBy("fecha", "desc"), limit(8));
+      const snap = await getDocs(q);
+      setVentasRecientes(snap.docs.map(d => ({ id: d.id, ...d.data() } as VentaReciente)));
+      
     } catch (e) {
-      console.error(e);
-      alert("Error en el proceso. Intenta de nuevo.");
+      console.error("Error en venta:", e);
+      toast.error("Error en el proceso. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -283,7 +448,8 @@ export default function VentaManual() {
   const productosFiltrados = productos.filter(p =>
     p.nombre?.toLowerCase().includes(filtro.toLowerCase()) ||
     p.sku?.toLowerCase().includes(filtro.toLowerCase()) ||
-    p.marca?.toLowerCase().includes(filtro.toLowerCase())
+    p.marca?.toLowerCase().includes(filtro.toLowerCase()) ||
+    p.modelo?.toLowerCase().includes(filtro.toLowerCase())
   );
 
   const clienteObj = clientes.find(c => c.email === clienteSeleccionado);
@@ -291,6 +457,7 @@ export default function VentaManual() {
   /* ══════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen" style={{ background: C.white, fontFamily: "'Outfit', 'Inter', sans-serif" }}>
+      <Toaster position="top-right" toastOptions={{ style: { borderRadius: "12px", fontSize: "13px" } }} />
 
       {/* HEADER */}
       <div className="sticky top-0 z-30 bg-white" style={{ borderBottom: `2px solid ${C.gray100}` }}>
@@ -322,11 +489,11 @@ export default function VentaManual() {
           {/* IZQUIERDA */}
           <div className="lg:w-3/5 space-y-4">
 
-            {/* Selector cliente */}
+            {/* Selector cliente - SOLO CLIENTES VERIFICADOS */}
             <div className="bg-white rounded-2xl border p-4" style={{ borderColor: C.gray200 }}>
               <label className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest mb-2.5"
                 style={{ color: C.gray500 }}>
-                <User size={13} style={{ color: C.purple }} /> Cliente / Empresa
+                <User size={13} style={{ color: C.purple }} /> Cliente / Empresa (solo clientes verificados)
               </label>
               <select value={clienteSeleccionado} onChange={e => setClienteSeleccionado(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl text-sm font-semibold outline-none transition-all border"
@@ -338,7 +505,7 @@ export default function VentaManual() {
                 <option value="">Seleccionar empresa B2B...</option>
                 {clientes.map(c => (
                   <option key={c.id} value={c.email}>
-                    {c.empresa || c.nombre || c.razonSocial || c.email} ({c.email})
+                    {c.empresa || c.razonSocial || c.nombre || c.email} ({c.email}) {c.ruc ? `- RUC: ${c.ruc}` : ""}
                   </option>
                 ))}
               </select>
@@ -347,22 +514,29 @@ export default function VentaManual() {
                   style={{ background: `${C.purple}08` }}>
                   <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black text-white"
                     style={{ background: `linear-gradient(135deg,${C.purple},${C.purpleDark})` }}>
-                    {(clienteObj.nombre || clienteObj.empresa || "?").charAt(0).toUpperCase()}
+                    {(clienteObj.empresa || clienteObj.nombre || "?").charAt(0).toUpperCase()}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs font-bold" style={{ color: C.gray800 }}>
-                      {clienteObj.empresa || clienteObj.nombre || clienteObj.email}
+                      {clienteObj.empresa || clienteObj.razonSocial || clienteObj.nombre || clienteObj.email}
                     </p>
-                    <p className="text-[10px]" style={{ color: C.gray500 }}>
-                      RUC: {clienteObj.ruc || clienteObj.nifCifRuc || "—"}
-                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[9px]" style={{ color: C.gray500 }}>
+                        RUC: {clienteObj.ruc || "—"}
+                      </span>
+                      {clienteObj.telefono && (
+                        <span className="text-[9px]" style={{ color: C.gray500 }}>
+                          📞 {clienteObj.telefono}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Pill color={C.green}>Activo</Pill>
+                  <Pill color={C.green}>Verificado</Pill>
                 </div>
               )}
             </div>
 
-            {/* Catálogo productos */}
+            {/* Catálogo productos - CON PRECIOS DETALLADOS */}
             <div className="bg-white rounded-2xl border" style={{ borderColor: C.gray200 }}>
               <div className="flex items-center justify-between px-5 py-4"
                 style={{ borderBottom: `1px solid ${C.gray100}` }}>
@@ -370,7 +544,7 @@ export default function VentaManual() {
                   style={{ color: C.gray700 }}>
                   <PackageSearch size={14} style={{ color: C.purple }} /> Inventario
                 </h2>
-                <input type="text" placeholder="Buscar nombre, SKU, marca..."
+                <input type="text" placeholder="Buscar nombre, SKU, marca, modelo..."
                   value={filtro} onChange={e => setFiltro(e.target.value)}
                   className="px-3 py-2 rounded-xl text-xs font-medium outline-none transition-all border w-56"
                   style={{ background: C.gray50, borderColor: C.gray200, color: C.gray900 }}
@@ -378,88 +552,247 @@ export default function VentaManual() {
                   onBlur={e  => (e.currentTarget.style.borderColor = C.gray200)} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 max-h-[500px] overflow-y-auto">
+              <div className="grid grid-cols-1 gap-3 p-4 max-h-[600px] overflow-y-auto">
                 {productosFiltrados.map(p => {
-                  const stockMostrar = p.stockCajas > 0 ? `${p.stockCajas} cajas` : `${p.stockUnidades} uds`;
-                  const stockBajo    = (p.stockCajas > 0 && p.stockCajas <= 5) || (p.stockCajas === 0 && p.stockUnidades <= 10);
-                  const agotado      = p.stockCajas === 0 && p.stockUnidades === 0;
-                  const enCarrito    = carrito.find(i => i.id === p.id);
+                  const stockCajas = p.stockCajas;
+                  const stockUnidades = p.stockUnidades;
+                  const agotado = stockCajas === 0 && stockUnidades === 0;
+                  const expandido = productoExpandido === p.id;
 
                   return (
                     <div key={p.id}
-                      className="flex gap-3 p-3 rounded-xl border transition-all cursor-pointer"
+                      className="rounded-xl border transition-all overflow-hidden"
                       style={{
-                        borderColor: enCarrito ? C.purple : C.gray200,
-                        background:  enCarrito ? `${C.purple}06` : C.white,
-                        opacity:     agotado ? 0.5 : 1,
-                        cursor:      agotado ? "not-allowed" : "pointer",
-                      }}
-                      onClick={() => !agotado && agregarProducto(p)}
-                      onMouseEnter={e => {
-                        if (!enCarrito && !agotado) {
-                          (e.currentTarget as HTMLElement).style.borderColor = `${C.purple}50`;
-                          (e.currentTarget as HTMLElement).style.background  = C.gray50;
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!enCarrito) {
-                          (e.currentTarget as HTMLElement).style.borderColor = C.gray200;
-                          (e.currentTarget as HTMLElement).style.background  = C.white;
-                        }
+                        borderColor: expandido ? C.purple : C.gray200,
+                        background: C.white,
                       }}>
 
-                      {/* Imagen */}
-                      <div className="w-12 h-12 rounded-xl border shrink-0 flex items-center justify-center overflow-hidden"
-                        style={{ background: C.gray100, borderColor: C.gray200 }}>
-                        {p.imagenUrl
-                          ? <img src={p.imagenUrl} className="w-full h-full object-contain p-1" alt={p.nombre}
-                              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          : <PackageSearch size={16} style={{ color: C.gray300 }} />}
-                      </div>
+                      {/* Header producto (siempre visible) */}
+                      <div className="p-3 flex gap-3">
+                        {/* Imagen */}
+                        <div className="w-16 h-16 rounded-xl border shrink-0 flex items-center justify-center overflow-hidden"
+                          style={{ background: C.gray100, borderColor: C.gray200 }}>
+                          {p.imagenUrl
+                            ? <img src={p.imagenUrl} className="w-full h-full object-contain p-1" alt={p.nombre}
+                                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            : <PackageSearch size={20} style={{ color: C.gray300 }} />}
+                        </div>
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        {p.sku && (
-                          <p className="text-[9px] font-black uppercase tracking-wider mb-0.5"
-                            style={{ color: C.gray400 }}>{p.sku}</p>
-                        )}
-                        <p className="text-xs font-bold text-gray-900 leading-tight truncate">{p.nombre}</p>
-                        {p.marca && (
-                          <p className="text-[10px] mt-0.5" style={{ color: C.gray500 }}>{p.marca}</p>
-                        )}
-                        <div className="flex items-center justify-between mt-1.5">
-                          <div>
-                            <span className="text-sm font-black" style={{ color: C.orange }}>
-                              S/ {fmt(p.precioCaja)}
-                            </span>
-                            <span className="text-[9px] ml-1" style={{ color: C.gray400 }}>/ caja</span>
+                        {/* Info básica */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              {p.sku && (
+                                <p className="text-[9px] font-black uppercase tracking-wider mb-0.5"
+                                  style={{ color: C.gray400 }}>{p.sku}</p>
+                              )}
+                              <p className="text-sm font-bold text-gray-900 leading-tight">{p.nombre}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                {p.marca && (
+                                  <BadgeSpec color={C.purple}>{p.marca}</BadgeSpec>
+                                )}
+                                {p.modelo && (
+                                  <BadgeSpec color={C.orange}>{p.modelo}</BadgeSpec>
+                                )}
+                                {p.capacidad_almacenamiento && (
+                                  <BadgeSpec color={C.green}>{p.capacidad_almacenamiento}</BadgeSpec>
+                                )}
+                                {p.capacidad_ram && (
+                                  <BadgeSpec color={C.yellow}>RAM {p.capacidad_ram}</BadgeSpec>
+                                )}
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => setProductoExpandido(expandido ? null : p.id)}
+                              className="p-1.5 rounded-lg"
+                              style={{ color: C.gray400 }}
+                              onMouseEnter={e => (e.currentTarget.style.background = C.gray100)}
+                              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                              {expandido ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
-                              agotado   ? "bg-red-50 text-red-500 border-red-200" :
-                              stockBajo ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                          "bg-emerald-50 text-emerald-700 border-emerald-200"}`}>
-                              {agotado ? "Agotado" : stockMostrar}
-                            </span>
-                            {enCarrito && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
-                                style={{ background: `${C.purple}15`, color: C.purple }}>
-                                ×{enCarrito.cantidad}
+
+                          {/* Stock y precios rápidos */}
+                          <div className="flex items-center gap-3 mt-2">
+                            {stockCajas > 0 && (
+                              <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
+                                style={{ background: `${C.orange}08` }}>
+                                <Package size={12} style={{ color: C.orange }} />
+                                <span className="text-xs font-bold" style={{ color: C.orange }}>
+                                  {stockCajas} cajas
+                                </span>
+                              </div>
+                            )}
+                            {stockUnidades > 0 && (
+                              <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
+                                style={{ background: `${C.purple}08` }}>
+                                <Box size={12} style={{ color: C.purple }} />
+                                <span className="text-xs font-bold" style={{ color: C.purple }}>
+                                  {stockUnidades} uds
+                                </span>
+                              </div>
+                            )}
+                            {agotado && (
+                              <span className="text-[9px] px-2 py-1 rounded-full bg-red-50 text-red-500 border border-red-200">
+                                Agotado
                               </span>
                             )}
                           </div>
                         </div>
-                        {/* Precio unitario secundario */}
-                        <p className="text-[9px] mt-0.5" style={{ color: C.gray400 }}>
-                          Unitario: S/ {fmt(p.precioUnidad)} · {p.unidadesPorCaja} uds/caja
-                        </p>
                       </div>
+
+                      {/* Detalles expandidos con precios detallados */}
+                      {expandido && (
+                        <div className="px-3 pb-3 pt-1 border-t" style={{ borderColor: C.gray100 }}>
+                          
+                          {/* Especificaciones técnicas */}
+                          {(p.color || p.sistema_operativo || p.garantia_meses) && (
+                            <div className="grid grid-cols-2 gap-2 mb-3 p-2 rounded-lg" style={{ background: C.gray50 }}>
+                              {p.color && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[9px] font-bold" style={{ color: C.gray500 }}>Color:</span>
+                                  <span className="text-[9px] font-bold" style={{ color: C.gray700 }}>{p.color}</span>
+                                </div>
+                              )}
+                              {p.sistema_operativo && (
+                                <div className="flex items-center gap-1">
+                                  <Smartphone size={9} style={{ color: C.purple }} />
+                                  <span className="text-[9px]" style={{ color: C.gray500 }}>{p.sistema_operativo}</span>
+                                </div>
+                              )}
+                              {p.garantia_meses && (
+                                <div className="flex items-center gap-1">
+                                  <Shield size={9} style={{ color: C.green }} />
+                                  <span className="text-[9px] font-bold" style={{ color: C.green }}>
+                                    {p.garantia_meses} meses garantía
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Precios por CAJA */}
+                          {stockCajas > 0 && (
+                            <div className="mb-3 p-3 rounded-xl border" style={{ borderColor: `${C.orange}30` }}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Package size={14} style={{ color: C.orange }} />
+                                <span className="text-xs font-bold uppercase" style={{ color: C.orange }}>
+                                  Compra por caja
+                                </span>
+                                <span className="text-[9px] px-2 py-0.5 rounded-full" style={{ background: C.gray100, color: C.gray600 }}>
+                                  {p.unidadesPorCaja} unidades por caja
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-bold text-gray-900">
+                                    Precio normal: <span style={{ color: C.orange }}>S/ {fmt(p.precioCaja)}</span>
+                                  </p>
+                                  {p.enOferta && p.precioOfertaCaja && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[9px] line-through" style={{ color: C.gray400 }}>
+                                        S/ {fmt(p.precioCaja)}
+                                      </span>
+                                      <span className="text-[9px] px-2 py-0.5 rounded-full" 
+                                        style={{ background: `${C.orange}15`, color: C.orange }}>
+                                        OFERTA
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => agregarProducto(p, "caja")}
+                                  disabled={stockCajas === 0}
+                                  className="px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                  style={{
+                                    background: stockCajas > 0 ? C.orange : C.gray200,
+                                    color: stockCajas > 0 ? C.white : C.gray500,
+                                    cursor: stockCajas > 0 ? "pointer" : "not-allowed",
+                                  }}
+                                  onMouseEnter={e => {
+                                    if (stockCajas > 0) {
+                                      e.currentTarget.style.background = C.orange + "dd";
+                                    }
+                                  }}
+                                  onMouseLeave={e => {
+                                    if (stockCajas > 0) {
+                                      e.currentTarget.style.background = C.orange;
+                                    }
+                                  }}>
+                                  <Plus size={12} />
+                                  Agregar caja
+                                </button>
+                              </div>
+                              <p className="text-[9px] mt-1" style={{ color: C.gray400 }}>
+                                Stock: {stockCajas} cajas disponibles
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Precios por UNIDAD */}
+                          {stockUnidades > 0 && (
+                            <div className="mb-2 p-3 rounded-xl border" style={{ borderColor: `${C.purple}30` }}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Box size={14} style={{ color: C.purple }} />
+                                <span className="text-xs font-bold uppercase" style={{ color: C.purple }}>
+                                  Compra por unidad
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-bold text-gray-900">
+                                    Precio unitario: <span style={{ color: C.purple }}>S/ {fmt(p.precioUnidad)}</span>
+                                  </p>
+                                  {p.enOfertaUnidad && p.precioOfertaUnidad && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[9px] line-through" style={{ color: C.gray400 }}>
+                                        S/ {fmt(p.precioUnidad)}
+                                      </span>
+                                      <span className="text-[9px] px-2 py-0.5 rounded-full" 
+                                        style={{ background: `${C.purple}15`, color: C.purple }}>
+                                        OFERTA
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => agregarProducto(p, "unidad")}
+                                  disabled={stockUnidades === 0}
+                                  className="px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                  style={{
+                                    background: stockUnidades > 0 ? C.purple : C.gray200,
+                                    color: stockUnidades > 0 ? C.white : C.gray500,
+                                    cursor: stockUnidades > 0 ? "pointer" : "not-allowed",
+                                  }}
+                                  onMouseEnter={e => {
+                                    if (stockUnidades > 0) {
+                                      e.currentTarget.style.background = C.purpleDark;
+                                    }
+                                  }}
+                                  onMouseLeave={e => {
+                                    if (stockUnidades > 0) {
+                                      e.currentTarget.style.background = C.purple;
+                                    }
+                                  }}>
+                                  <Plus size={12} />
+                                  Agregar unidad
+                                </button>
+                              </div>
+                              <p className="text-[9px] mt-1" style={{ color: C.gray400 }}>
+                                Stock: {stockUnidades} unidades disponibles
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
 
                 {productosFiltrados.length === 0 && (
-                  <div className="col-span-2 py-14 text-center">
+                  <div className="py-14 text-center">
                     <PackageSearch size={32} style={{ color: C.gray300, margin: "0 auto 8px" }} />
                     <p className="text-sm" style={{ color: C.gray400 }}>Sin productos</p>
                   </div>
@@ -502,41 +835,49 @@ export default function VentaManual() {
                       Haz clic en un producto
                     </p>
                   </div>
-                ) : carrito.map(item => (
-                  <div key={item.id}
-                    className="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border"
-                    style={{ borderColor: C.gray200 }}>
-                    <div className="flex-1 min-w-0 mr-3">
-                      <p className="text-xs font-bold text-gray-900 truncate">{item.nombre}</p>
-                      <p className="text-[10px]" style={{ color: C.gray500 }}>
-                        S/ {fmt(item.precioBase)} × {item.cantidad} ={" "}
-                        <strong style={{ color: C.purple }}>S/ {fmt(item.precioBase * item.cantidad)}</strong>
-                      </p>
+                ) : carrito.map(item => {
+                  const precioUnitario = item.tipoPrecio === "caja" ? item.precioCaja : item.precioUnidad;
+                  return (
+                    <div key={`${item.id}-${item.tipoPrecio}`}
+                      className="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border"
+                      style={{ borderColor: C.gray200 }}>
+                      <div className="flex-1 min-w-0 mr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-gray-900 truncate">{item.nombre}</p>
+                          <Pill color={item.tipoPrecio === "caja" ? C.orange : C.purple}>
+                            {item.tipoPrecio === "caja" ? "Caja" : "Unidad"}
+                          </Pill>
+                        </div>
+                        <p className="text-[10px]" style={{ color: C.gray500 }}>
+                          S/ {fmt(precioUnitario)} × {item.cantidad} ={" "}
+                          <strong style={{ color: C.purple }}>S/ {fmt(precioUnitario * item.cantidad)}</strong>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => cambiarCantidad(item.id, item.tipoPrecio, -1)}
+                          className="w-6 h-6 rounded-lg flex items-center justify-center transition-all border"
+                          style={{ background: C.gray100, borderColor: C.gray200 }}>
+                          <Minus size={12} style={{ color: C.gray600 }} />
+                        </button>
+                        <span className="text-xs font-black w-5 text-center" style={{ color: C.gray900 }}>
+                          {item.cantidad}
+                        </span>
+                        <button onClick={() => cambiarCantidad(item.id, item.tipoPrecio, 1)}
+                          className="w-6 h-6 rounded-lg flex items-center justify-center transition-all border"
+                          style={{ background: C.gray100, borderColor: C.gray200 }}>
+                          <Plus size={12} style={{ color: C.gray600 }} />
+                        </button>
+                        <button onClick={() => eliminarItem(item.id, item.tipoPrecio)}
+                          className="w-6 h-6 rounded-lg flex items-center justify-center transition-all ml-0.5"
+                          style={{ color: "#ef4444" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
+                          onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={() => cambiarCantidad(item.id, -1)}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-all border"
-                        style={{ background: C.gray100, borderColor: C.gray200 }}>
-                        <Minus size={12} style={{ color: C.gray600 }} />
-                      </button>
-                      <span className="text-xs font-black w-5 text-center" style={{ color: C.gray900 }}>
-                        {item.cantidad}
-                      </span>
-                      <button onClick={() => cambiarCantidad(item.id, 1)}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-all border"
-                        style={{ background: C.gray100, borderColor: C.gray200 }}>
-                        <Plus size={12} style={{ color: C.gray600 }} />
-                      </button>
-                      <button onClick={() => eliminarItem(item.id)}
-                        className="w-6 h-6 rounded-lg flex items-center justify-center transition-all ml-0.5"
-                        style={{ color: "#ef4444" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Totales + botones */}
@@ -607,7 +948,7 @@ export default function VentaManual() {
             <h2 className="text-xs font-black uppercase tracking-widest" style={{ color: C.gray700 }}>
               Ventas Recientes
             </h2>
-            <span className="ml-auto text-[10px] font-semibold" style={{ color: C.gray400 }}>Últimas 8</span>
+            <span className="ml-auto text-[10px] font-semibold" style={{ color: C.gray400 }}>Tiempo real</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -637,11 +978,12 @@ export default function VentaManual() {
                       }) || "—"}
                     </td>
                     <td className="px-5 py-3 text-xs font-semibold" style={{ color: C.gray900 }}>
-                      {v.clienteEmail || "—"}
+                      {v.clienteNombre || v.clienteEmail || "—"}
                     </td>
                     <td className="px-5 py-3">
                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
                         v.estado === "Proforma"   ? "bg-amber-50 text-amber-700 border-amber-200" :
+                        v.estado === "PENDIENTE" ? "bg-purple-50 text-purple-700 border-purple-200" :
                         v.estado === "Completado" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
                                                     "bg-gray-100 text-gray-600 border-gray-200"}`}>
                         {v.estado || "—"}

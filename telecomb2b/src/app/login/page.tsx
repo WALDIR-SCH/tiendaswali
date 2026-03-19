@@ -141,31 +141,128 @@ export default function LoginPage() {
       <div style={{ minHeight:"100vh", background:C.white, display:"flex" }}>
 
         {/* ════════════════════════════════════════
-            PANEL IZQUIERDO — Imagen hero
+            PANEL IZQUIERDO — Imagen hero mejorada
             ════════════════════════════════════════ */}
         <div className="login-panel-left" style={{
-          width:"45%", flexShrink:0, position:"relative", overflow:"hidden",
+          width: "45%",
+          flexShrink: 0,
+          position: "relative",
+          overflow: "hidden",
+          background: `linear-gradient(145deg, ${C.purple}05 0%, ${C.orange}05 100%)`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}>
-          {/* ── IMAGEN DE FONDO ─────────────────────
-              OPCIÓN A — Si usas la imagen local en /public/images/login-hero.png
-              Cambia el src a la ruta correcta de tu proyecto.
-              
-              OPCIÓN B — Si usas una URL externa, pon la URL directamente en src.
-          ─────────────────────────────────────── */}
-          <Image
-            src="/images/xd.png"
-            alt="Tiendas Waly B2B"
-            fill
-            sizes="45vw"
-            style={{ objectFit:"cover", objectPosition:"center center" }}
-            priority
-            quality={85}
-          />
+          
+          {/* Contenedor de imagen con bordes redondeados y sombra */}
+          <div style={{
+            position: "relative",
+            width: "85%",
+            height: "90%",
+            maxWidth: 500,
+            maxHeight: 700,
+            borderRadius: 32,
+            overflow: "hidden",
+            boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px ${C.purple}20 inset`,
+            transform: "scale(1)",
+            transition: "transform 0.3s ease",
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.02)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
+            
+            {/* Capa de overlay con gradiente para mejor legibilidad */}
+            <div style={{
+              position: "absolute",
+              inset: 0,
+              background: `linear-gradient(135deg, ${C.purple}40 0%, transparent 50%, ${C.orange}40 100%)`,
+              zIndex: 1,
+              pointerEvents: "none",
+            }} />
+            
+            {/* Imagen principal */}
+            <Image
+              src="/images/lol.png"
+              alt="MUNDO MOVIL- Plataforma Mayorista"
+              fill
+              sizes="45vw"
+              style={{ 
+                objectFit: "cover", 
+                objectPosition: "center 30%",
+              }}
+              priority
+              quality={90}
+            />
+            
+            {/* Decoración inferior con gradiente */}
+            <div style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: "30%",
+              background: "linear-gradient(to top, rgba(0,0,0,0.4), transparent)",
+              zIndex: 2,
+              pointerEvents: "none",
+            }} />
+            
+            {/* Texto superpuesto (opcional - para branding) */}
+            <div style={{
+              position: "absolute",
+              bottom: 30,
+              left: 30,
+              zIndex: 3,
+              color: C.white,
+              textShadow: "0 2px 10px rgba(0,0,0,0.3)",
+            }}>
+              <p style={{ 
+                fontSize: 20, 
+                fontWeight: 800, 
+                margin: 0,
+                lineHeight: 1.2,
+                letterSpacing: "-0.02em",
+              }}>
+                
+              </p>
+              <p style={{ 
+                fontSize: 14, 
+                fontWeight: 500, 
+                margin: "4px 0 0",
+                opacity: 0.9,
+              }}>
+               
+              </p>
+            </div>
+          </div>
 
+          {/* Elementos decorativos de fondo */}
+          <div style={{
+            position: "absolute",
+            top: -50,
+            right: -50,
+            width: 200,
+            height: 200,
+            background: C.purple,
+            opacity: 0.03,
+            borderRadius: "50%",
+            filter: "blur(60px)",
+            zIndex: 0,
+          }} />
+          <div style={{
+            position: "absolute",
+            bottom: -50,
+            left: -50,
+            width: 250,
+            height: 250,
+            background: C.orange,
+            opacity: 0.03,
+            borderRadius: "50%",
+            filter: "blur(70px)",
+            zIndex: 0,
+          }} />
         </div>
 
         {/* ════════════════════════════════════════
-            PANEL DERECHO — Formulario
+            PANEL DERECHO — Formulario (sin cambios)
             ════════════════════════════════════════ */}
         <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"32px 24px", overflowY:"auto", background:C.white }}>
           <div style={{ width:"100%", maxWidth:420 }}>
@@ -182,7 +279,7 @@ export default function LoginPage() {
                 <p style={{ margin:0, fontSize:15, fontWeight:900, color:C.gray900, letterSpacing:"-0.02em" }}>
                   TIENDAS <span style={{ color:C.purple }}>WALY</span>
                 </p>
-                <p style={{ margin:0, fontSize:10, color:C.gray500, textTransform:"uppercase", letterSpacing:"0.1em" }}>Plataforma B2B</p>
+                <p style={{ margin:0, fontSize:10, color:C.gray500, textTransform:"uppercase", letterSpacing:"0.1em" }}>Plataforma </p>
               </div>
             </div>
 
@@ -190,7 +287,7 @@ export default function LoginPage() {
             <div style={{ marginBottom:28 }}>
               <div style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 12px", borderRadius:20, marginBottom:12, background:`${C.purple}10`, border:`1px solid ${C.purple}25` }}>
                 <ShieldCheck size={13} color={C.purple} />
-                <span style={{ fontSize:11, fontWeight:700, color:C.purple, letterSpacing:"0.05em", textTransform:"uppercase" }}>Acceso Seguro B2B</span>
+                <span style={{ fontSize:11, fontWeight:700, color:C.purple, letterSpacing:"0.05em", textTransform:"uppercase" }}>Acceso Seguro</span>
               </div>
               <h1 style={{ fontSize:26, fontWeight:900, color:C.gray900, margin:"0 0 6px", letterSpacing:"-0.03em" }}>
                 Bienvenido de vuelta
@@ -198,7 +295,7 @@ export default function LoginPage() {
               <p style={{ fontSize:14, color:C.gray500, margin:0 }}>Accede con tu cuenta empresarial</p>
             </div>
 
-            {/* ── FORMULARIO ─────────────────────── */}
+            {/* Formulario */}
             <form onSubmit={handleLogin} style={{ display:"flex", flexDirection:"column", gap:16 }}>
 
               {/* Email */}
