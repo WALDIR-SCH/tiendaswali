@@ -11,12 +11,12 @@ const C = {
   primary: "var(--primary-color)",
   primaryHover: "var(--primary-hover)",
   white: "#FFFFFF",
-  bgPrimary: "var(--background-primary)",
-  bgSecondary: "var(--background-secondary)",
-  bgCard: "var(--background-card)",
-  textPrimary: "var(--text-primary)",
-  textSecondary: "var(--text-secondary)",
-  border: "var(--border-color)",
+  bgPrimary: "#F5F5F5",
+  bgSecondary: "#F9FAFB",
+  bgCard: "#FFFFFF",
+  textPrimary: "#111827",
+  textSecondary: "#6B7280",
+  border: "#3c65a1",
   gray500: "#6b7280",
   red: "#ef4444",
   gray700: "#374151",
@@ -24,15 +24,15 @@ const C = {
   purple: "#9851F9",
   purpleDark: "#7C35E0",
   shadow: "0 8px 32px 0 rgba(80,80,120,0.10)",
-    orange: "#FF6600",
-        yellow: "#F6FA00",
-        green: "#28FB4B",
-        black: "#000000",
-        gray100: "#F3F4F6",
-        gray200: "#E5E7EB",
-        gray300: "#D1D5DB",
-        gray400: "#9CA3AF",
-        gray600: "#4B5563",
+  orange: "#FF6600",
+  yellow: "#F6FA00",
+  green: "#28FB4B",
+  black: "#000000",
+  gray100: "#F3F4F6",
+  gray200: "#E5E7EB",
+  gray300: "#D1D5DB",
+  gray400: "#9CA3AF",
+  gray600: "#4B5563",
 };
 
 const ESTADO_COT: Record<string, { label:string; bg:string; color:string; border:string }> = {
@@ -180,7 +180,7 @@ export default function CotizacionesPage() {
                     borderColor: C.border,
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = C.primary;
+                    e.currentTarget.style.backgroundColor = C.purple;
                     e.currentTarget.style.color = C.white;
                   }}
                   onMouseLeave={e => {
@@ -193,8 +193,9 @@ export default function CotizacionesPage() {
                 </button>
                 <button
                   className="p-2 rounded-lg transition-colors border shadow-sm"
-                  style={{backgroundColor: C.bgSecondary, borderColor: C.border}}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = C.primaryHover}
+                  style={{
+                    backgroundColor: C.bgSecondary, borderColor: C.border}}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = C.purple}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = C.bgSecondary}
                 >
                   <Download size={18} style={{color: C.gray900}} />
@@ -202,7 +203,7 @@ export default function CotizacionesPage() {
                 <button
                   className="p-2 rounded-lg transition-colors border shadow-sm"
                   style={{backgroundColor: C.bgSecondary, borderColor: C.border}}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = C.primary}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = C.purple}
                   onMouseLeave={e => e.currentTarget.style.backgroundColor = C.bgSecondary}
                 >
                   <Send size={18} style={{color: C.gray900}} />
