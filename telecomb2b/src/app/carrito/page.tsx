@@ -389,7 +389,7 @@ export default function CarritoPage() {
               <div style={{ width:64, height:64, borderRadius:"50%", background:`${C.purple}15`, border:`2px solid ${C.purple}30`, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
                 <Building size={28} style={{ color:C.purple }} />
               </div>
-              <h2 style={{ fontSize:18, fontWeight:900, color:C.gray900, margin:"0 0 4px" }}>Procesando Orden B2B</h2>
+              <h2 style={{ fontSize:18, fontWeight:900, color:C.gray900, margin:"0 0 4px" }}>Procesando Orden</h2>
               <p style={{ fontSize:13, color:C.gray500, margin:0 }}>Validando RUC y datos SUNAT</p>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -440,7 +440,7 @@ export default function CarritoPage() {
                 <CheckCircle2 size={38} style={{ color:C.greenDark }} />
               </div>
               <h2 style={{ fontSize:22, fontWeight:900, color:C.gray900, margin:"0 0 6px" }}>¡Orden Confirmada!</h2>
-              <p style={{ fontSize:13, color:C.gray500, margin:0 }}>Tu pedido B2B fue procesado exitosamente</p>
+              <p style={{ fontSize:13, color:C.gray500, margin:0 }}>Tu pedido fue procesado exitosamente</p>
               <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginTop:12, padding:"6px 16px", borderRadius:20, background:C.gray100, border:`1px solid ${C.gray200}` }}>
                 <span style={{ fontSize:12, fontFamily:"monospace", color:C.gray700 }}>#{orderDetails.id.substring(0,8).toUpperCase()}</span>
                 <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>· RUC: {orderDetails.ruc}</span>
@@ -519,11 +519,8 @@ export default function CarritoPage() {
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ display:"flex", alignItems:"center", gap:5 }}>
               <div style={{ width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}`, animation:"pulse 2s infinite" }} />
-              <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>B2B Perú</span>
+              <span style={{ fontSize:11, fontWeight:700, color:C.greenDark }}>Perú</span>
             </div>
-            <h1 style={{ fontSize:16, fontWeight:900, color:C.gray900 }}>
-              Checkout <span style={{ color:C.purpleDark }}>B2B</span>
-            </h1>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
             <ShoppingBag size={18} style={{ color:C.gray400 }} />
@@ -782,7 +779,7 @@ export default function CarritoPage() {
                     <ShoppingBag size={30} style={{ color:C.gray300 }} />
                   </div>
                   <h4 style={{ fontSize:16, fontWeight:900, color:C.gray800, margin:"0 0 6px" }}>Carrito vacío</h4>
-                  <p style={{ fontSize:13, color:C.gray500, margin:"0 0 20px" }}>Agrega productos desde nuestro catálogo B2B</p>
+                  <p style={{ fontSize:13, color:C.gray500, margin:"0 0 20px" }}>Agrega productos desde nuestro catálogo</p>
                   <button onClick={() => router.push("/catalogo")}
                     style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"11px 22px", borderRadius:12, background:`linear-gradient(135deg,${C.purpleDark},${C.purple})`, color:C.white, border:"none", fontSize:13, fontWeight:800, cursor:"pointer", boxShadow:`0 4px 16px ${C.purpleDark}40` }}>
                     <Building size={15} />Explorar Catálogo
@@ -912,7 +909,7 @@ export default function CarritoPage() {
                   ? <><Loader2 size={17} style={{ animation:"spin .75s linear infinite" }} />Procesando Orden...</>
                   : carrito.length===0 ? "Agrega productos primero"
                   : !envio.ruc||envio.ruc.length!==11 ? "Ingresa RUC válido (11 dígitos)"
-                  : <><Lock size={15} />Confirmar Orden B2B<ArrowRight size={15}/></>}
+                  : <><Lock size={15} />Confirmar Orden<ArrowRight size={15}/></>}
               </button>
 
               {carrito.length>0 && (
@@ -929,7 +926,7 @@ export default function CarritoPage() {
             <div style={{ borderRadius:18, padding:18, border:`1px solid ${C.gray200}`, background:C.white }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
                 <Award size={15} style={{ color:C.yellow }} />
-                <h3 style={{ fontSize:13, fontWeight:900, color:C.gray900, margin:0 }}>Ventajas B2B</h3>
+                <h3 style={{ fontSize:13, fontWeight:900, color:C.gray900, margin:0 }}>Ventajas</h3>
               </div>
               {[
                 { icon:FileText,    color:C.purpleDark, title:"Factura Electrónica",     sub:"Validada por SUNAT"                },
@@ -968,7 +965,7 @@ export default function CarritoPage() {
         <div style={{ maxWidth:1280, margin:"0 auto" }}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:24, marginBottom:20 }}>
             {[
-              { title:"Tiendas Waly",     body:<p style={{ fontSize:12, color:C.gray500, margin:0 }}>Plataforma B2B mayorista peruano.</p> },
+              { title:"Tiendas Waly",     body:<p style={{ fontSize:12, color:C.gray500, margin:0 }}>Plataforma mayorista peruano.</p> },
               { title:"Soporte",          body:<><p style={{ fontSize:12, color:C.gray500, margin:"0 0 4px", display:"flex", alignItems:"center", gap:5 }}><Phone size={10}/>+51 1 640-9000</p><p style={{ fontSize:12, color:C.gray500, margin:0, display:"flex", alignItems:"center", gap:5 }}><Mail size={10}/>ventas@tiendaswaly.com</p></> },
               { title:"Bancos aceptados", body:<div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>{["BCP","BBVA","Interbank"].map(b=><span key={b} style={{ padding:"3px 9px", borderRadius:8, fontSize:11, fontWeight:700, background:`${C.purpleDark}10`, color:C.purpleDark }}>{b}</span>)}</div> },
               { title:"RUC",              body:<><p style={{ fontSize:12, fontFamily:"monospace", fontWeight:700, color:C.gray700, margin:0 }}>20605467891</p><p style={{ fontSize:10, color:C.gray500, margin:"3px 0 0" }}>TIENDAS WALY SAC</p></> },
